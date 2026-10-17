@@ -180,6 +180,16 @@ const BIN_ID = "6ad3d3e6ffd5d1605374492d";
 const MASTER_KEY = "$2a$10$bY/xvTFuQsu93F7/K/2fo.asbcz5Iu0XsPDip/iNi/CUWYPSaigra";
 const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
+// Таймер для отложенного сохранения
+let saveTimer = null;
+
+function triggerSave() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    saveDataToCloud();
+  }, 1500); // Ждем 1.5 секунды после последнего клика
+}
+
 async function loadDataFromCloud() {
   try {
     const res = await fetch(JSONBIN_URL + "/latest", {
@@ -196,10 +206,7 @@ async function loadDataFromCloud() {
 }
 
 async function saveDataToCloud(silent) {
-  if (!IS_EDIT_MODE) {
-    if (!silent) alert("У вас нет прав на изменение данных.");
-    return;
-  }
+  if (!IS_EDIT_MODE) return;
   try {
     const res = await fetch(JSONBIN_URL, {
       method: 'PUT',
@@ -210,10 +217,11 @@ async function saveDataToCloud(silent) {
       body: JSON.stringify(data)
     });
     if (!res.ok) throw new Error("Ошибка сети");
-    if (!silent) showSv("Сохранено в облако ✓");
+    showSv("Сохранено в облако ✓");
   } catch(e) { 
     console.error("Ошибка сохранения:", e);
-    if (!silent) alert("Ошибка сохранения! Проверьте интернет.");
+    // Если ошибка, покажем, но не будем мешать спамом
+    showSv("Ошибка сохранения...", "var(--bad)");
   }
 }
 
@@ -384,7 +392,7 @@ function renameDate(idx) {
   var d = prompt('Введите дату (или оставьте пустым, чтобы стереть):', cur);
   if (d === null) return;
   data.dates[idx] = d.trim();
-  saveDataToCloud();
+  triggerSave();
 }
 
 var popup = document.getElementById('popup');
@@ -422,7 +430,8 @@ document.querySelectorAll('.pi').forEach(function(el) {
     var key = activeCell.idx + '|' + activeCell.student;
     if (v) data.marks[key] = v; else delete data.marks[key];
     closePopup();
-    saveDataToCloud();
+    renderAll();
+    triggerSave();
   });
 });
 
@@ -435,7 +444,8 @@ function addStudent() {
   data.students.push(name);
   data.statuses[name] = 'питается';
   input.value = '';
-  saveDataToCloud();
+  renderAll();
+  triggerSave();
 }
 
 function removeStudent(name) {
@@ -443,7 +453,8 @@ function removeStudent(name) {
   if (!confirm('Удалить "' + name + '"?')) return;
   data.students = data.students.filter(function(s){ return s !== name; });
   delete data.statuses[name];
-  saveDataToCloud();
+  renderAll();
+  triggerSave();
 }
 
 function changeStatus(ev, name) {
@@ -452,7 +463,8 @@ function changeStatus(ev, name) {
   var current = data.statuses[name] || 'питается';
   var next = current === 'питается' ? 'не питается' : (current === 'не питается' ? 'бесплатно' : 'питается');
   data.statuses[name] = next;
-  saveDataToCloud();
+  renderAll();
+  triggerSave();
 }
 
 function makeOrder() {
@@ -476,7 +488,8 @@ function makeOrder() {
   else result = '';
 
   data.orders[idx] = result;
-  saveDataToCloud();
+  renderAll();
+  triggerSave();
 }
 
 function takeScreenshot() {
