@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <title>Журнал питания</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--bg:#0b0f19;--panel:#171e2e;--txt:#f8fafc;--mut:#94a3b8;--acc:#38bdf8;--ok:#34d399;--bad:#f87171;--warn:#fbbf24;--brd:#334155}
 *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -52,8 +51,6 @@ th.date-head:hover{background:#1f2937;color:#58a6ff}
 .gc{cursor:pointer;font-weight:bold;min-width:45px;transition:.1s;text-align:center;position:relative;}
 .gc:hover{background:rgba(56,189,248,.1)}
 .gc.ab{color:var(--warn)!important;background:rgba(251,191,36,.1)}
-
-/* Обновленные плюсики: жирные, прозрачный фон, фиксированный размер */
 .gc.plus{
   color: #4ade80 !important; 
   font-weight: 900 !important; 
@@ -68,7 +65,7 @@ tr.order-row td.col-num{background:#1e293b!important}
 tr.order-row .gc{background:#1e293b;border-left:1px solid var(--brd);border-right:1px solid var(--brd);text-align:center;color:var(--ok)}
 tr.order-row .gc.empty{color:#475569}
 
-/* Выпадашка под ячейкой */
+/* Выпадашка */
 #popup{position:absolute;display:none;background:#1e293b;border:2px solid var(--acc);border-radius:12px;padding:6px;box-shadow:0 10px 25px rgba(0,0,0,.7);z-index:2000;flex-direction:row;gap:4px;overflow-x:auto;max-width:95vw;align-items:center}
 .pi{background:var(--bg)!important;border:1px solid var(--brd)!important;color:#fff!important;text-align:center!important;padding:8px 14px!important;border-radius:6px!important;font-weight:bold!important;cursor:pointer!important;font-size:15px!important;width:auto!important;display:inline-block!important}
 .pi:hover{background:var(--acc)!important;color:#0b0f19!important}
@@ -142,7 +139,6 @@ tr.order-row .gc.empty{color:#475569}
   <!-- ИЗМЕНИТЬ -->
   <div id="p-edit" class="panel" style="display:none">
     <h3 style="margin-bottom:15px;color:var(--acc)">Ученики</h3>
-    
     <div id="edit-controls" style="display:none">
         <div class="form-group">
           <label>Добавить ученика:</label>
@@ -150,90 +146,72 @@ tr.order-row .gc.empty{color:#475569}
         </div>
         <button class="btn-ok" onclick="addStudent()" style="margin-bottom:20px">Добавить</button>
     </div>
-    
     <h4 style="color:var(--mut);margin-bottom:10px">Список класса</h4>
     <div id="slist"></div>
-
-    <div id="download-controls" style="display:none; gap:10px; flex-wrap:wrap; margin-top:20px; padding-top:15px; border-top:1px dashed var(--brd)">
-      <button class="btn-sec" onclick="exportJson()">📥 JSON</button>
-      <button class="btn-sec" onclick="document.getElementById('imp').click()">📤 Загрузить</button>
-      <input type="file" id="imp" style="display:none" onchange="importJson(this)">
-    </div>
   </div>
-
 </div>
 
 <script>
 /* ================= НАСТРОЙКИ ================= */
 var TEACHER_PIN = '6452';
-var STUDENT_PIN = '8965'; // Пароль для учеников
+var STUDENT_PIN = '8965'; 
 var IS_EDIT_MODE = false;
 
-const SUPABASE_URL = 'https://jnwfaarwljqcmbiwfmbz.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_FoWE5TRF8oMgRrKc1coZQ_TwpZKM9Z';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
 var data = {
-  students: [],
+  students: [
+    "Авчинникова Дарья","Аргучинская Евгения","Барановская Таня","Бородич Тимафей",
+    "Буров Никита","Василенко Анастасия","Верютин Артём","Госанов Тимур",
+    "Евдокимов Никита","Зайцев Владимер","Зинена Арина","Зубарь Стас",
+    "Коляденко Кирил","Корбан Мелана","Леухина Ярослава","Лобановский Станислав",
+    "Мороз Артём","Петровская Ева","Рак Камилла","Рыжков Артём",
+    "Синюгин Антон","Синяков Даниил","Тюляндин Клим","Тяпкин Артём",
+    "Федоренка Никита","Харкевич Платон","Цырша Игнат","Ященко Карина"
+  ],
   dates: Array(17).fill(""),
   statuses: {},
   marks: {},
-  orders: {},
-  _savedAt: Date.now()
+  orders: {}
 };
 
-/* ================= ЗАГРУЗКА ДАННЫХ ================= */
-async function loadData() {
+data.students.forEach(s => { if (!data.statuses[s]) data.statuses[s] = "питается"; });
+
+/* ================= ОБЛАКО (JSONBin) ================= */
+const BIN_ID = "6ad3d3e6ffd5d1605374492d";
+const MASTER_KEY = "$2a$10$bY/xvTFuQsu93F7/K/2fo.asbcz5Iu0XsPDip/iNi/CUWYPSaigra";
+const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+async function loadDataFromCloud() {
   try {
-    const { data: res, error } = await supabase
-      .from('journal_data')
-      .select('content')
-      .eq('id', 1)
-      .single();
-      
-    if (error) throw error;
-    
-    if (res && res.content) {
-      if (res.content.students && res.content.students.length > 0) {
-         data = res.content;
-      } else {
-         data.students = [
-            "Авчинникова Дарья","Аргучинская Евгения","Барановская Таня","Бородич Тимафей",
-            "Буров Никита","Василенко Анастасия","Верютин Артём","Госанов Тимур",
-            "Евдокимов Никита","Зайцев Владимер","Зинена Арина","Зубарь Стас",
-            "Коляденко Кирил","Корбан Мелана","Леухина Ярослава","Лобановский Станислав",
-            "Мороз Артём","Петровская Ева","Рак Камилла","Рыжков Артём",
-            "Синюгин Антон","Синяков Даниил","Тюляндин Клим","Тяпкин Артём",
-            "Федоренка Никита","Харкевич Платон","Цырша Игнат","Ященко Карина"
-         ];
-         data.students.forEach(s => { if (!data.statuses[s]) data.statuses[s] = "питается"; });
-         await saveDataToDB(true); 
+    const res = await fetch(JSONBIN_URL + "/latest", {
+      headers: { 'X-Master-Key': MASTER_KEY }
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.record && json.record.students && json.record.students.length > 0) {
+         data = json.record;
       }
     }
-  } catch (e) {
-    console.error("Ошибка загрузки:", e);
-  }
+  } catch(e) { console.error("Ошибка загрузки:", e); }
   renderAll();
 }
 
-/* ================= СОХРАНЕНИЕ ================= */
-async function saveDataToDB(silent) {
-  data._savedAt = Date.now();
-  
+async function saveDataToCloud(silent) {
   if (!IS_EDIT_MODE) {
-    if (!silent) alert("У вас нет прав на изменение данных (режим ученика).");
+    if (!silent) alert("У вас нет прав на изменение данных.");
     return;
   }
-
   try {
-    const { error } = await supabase
-      .from('journal_data')
-      .update({ content: data })
-      .eq('id', 1);
-      
-    if (error) throw error;
+    const res = await fetch(JSONBIN_URL, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': MASTER_KEY
+      },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error("Ошибка сети");
     if (!silent) showSv("Сохранено в облако ✓");
-  } catch (e) {
+  } catch(e) { 
     console.error("Ошибка сохранения:", e);
     if (!silent) alert("Ошибка сохранения! Проверьте интернет.");
   }
@@ -252,23 +230,19 @@ function doLogin(){
     IS_EDIT_MODE = true;
     document.getElementById('pin-screen').style.display = 'none';
     document.getElementById('class-screen').style.display = 'flex';
-    
     document.getElementById('edit-controls').style.display = 'block';
-    document.getElementById('download-controls').style.display = 'flex';
     document.getElementById('user-mode').textContent = "Режим учителя (Редактирование)";
     document.getElementById('user-mode').style.color = "var(--ok)";
-    loadData();
+    loadDataFromCloud();
   } 
   else if (v === STUDENT_PIN) {
     IS_EDIT_MODE = false;
     document.getElementById('pin-screen').style.display = 'none';
     document.getElementById('class-screen').style.display = 'flex';
-    
     document.getElementById('edit-controls').style.display = 'none';
-    document.getElementById('download-controls').style.display = 'none';
     document.getElementById('user-mode').textContent = "Режим ученика (Только просмотр)";
     document.getElementById('user-mode').style.color = "var(--warn)";
-    loadData();
+    loadDataFromCloud();
   } 
   else {
     document.getElementById('pin-err').textContent = 'Неверный ПИН-код';
@@ -279,10 +253,8 @@ function doLogin(){
 function openPage(name) {
   document.getElementById('class-screen').style.display = 'none';
   document.getElementById('main').style.display = 'block';
-  
   document.querySelectorAll('.panel').forEach(function(p){ p.style.display = 'none'; });
   document.getElementById('p-' + name).style.display = 'block';
-  
   renderAll();
 }
 
@@ -292,7 +264,6 @@ document.getElementById('btn-menu').addEventListener('click', function(){
   document.getElementById('class-screen').style.display = 'flex';
 });
 
-/* ================= СОХРАНЕНИЕ UI ================= */
 function showSv(text, color){
   var el = document.getElementById('sv');
   el.textContent = text || 'Сохранено ✓';
@@ -302,7 +273,6 @@ function showSv(text, color){
   showSv._t = setTimeout(function(){ el.classList.remove('show'); el.style.color = '#fff'; }, 1500);
 }
 
-/* ================= РЕНДЕР ================= */
 function renderAll() {
   renderTable('view-table-wrapper', false);
   renderTable('mark-table-wrapper', true);
@@ -313,8 +283,6 @@ function renderAll() {
 function renderTable(wrapperId, interactive) {
   var wrap = document.getElementById(wrapperId);
   if (!wrap) return;
-  var sel = document.getElementById('order-date-select');
-  var selectedIdx = sel ? sel.value : '';
 
   var html = '<table><thead><tr>';
   html += '<th class="col-num">№</th>';
@@ -336,10 +304,8 @@ function renderTable(wrapperId, interactive) {
     data.dates.forEach(function(d, idx) {
       var val = data.marks[idx + '|' + s] || '';
       var cls = 'gc', txt = '-';
-      
       if (val === '+') { cls += ' plus'; txt = '+'; }
       if (val === 'н') { cls += ' ab'; txt = 'н'; }
-      
       if (interactive && IS_EDIT_MODE) {
         html += '<td class="' + cls + '" data-idx="' + idx + '" data-student="' + s + '">' + txt + '</td>';
       } else {
@@ -349,11 +315,9 @@ function renderTable(wrapperId, interactive) {
     html += '</tr>';
   });
 
-  // Строка заявки
   html += '<tr class="order-row">';
   html += '<td class="col-num"></td>';
   html += '<td class="col-nm">Заявка</td>';
-  
   data.dates.forEach(function(d, idx) {
     var orderVal = data.orders[idx] || '';
     var txt = orderVal ? orderVal : '-';
@@ -366,12 +330,10 @@ function renderTable(wrapperId, interactive) {
   if (interactive && IS_EDIT_MODE) {
     wrap.querySelectorAll('td.gc').forEach(function(td) {
       if (td.parentElement.classList.contains('order-row')) return;
-      
       td.addEventListener('click', function(e){
         showCellDropdown(e, td.dataset.idx, td.dataset.student);
       });
     });
-    
     wrap.querySelectorAll('th.date-head').forEach(function(th) {
       th.addEventListener('click', function(){
         renameDate(th.dataset.idx);
@@ -405,9 +367,6 @@ function renderClassList() {
   var wrap = document.getElementById('slist');
   if (!wrap) return;
   var html = '';
-  if (!data.students.length) {
-    html = '<div style="padding:12px;color:var(--mut);text-align:center">Список пуст</div>';
-  }
   data.students.forEach(function(s, i) {
     var st = data.statuses[s] || 'питается';
     var color = st === 'бесплатно' ? 'var(--ok)' : (st === 'не питается' ? 'var(--bad)' : 'var(--mut)');
@@ -419,14 +378,13 @@ function renderClassList() {
   wrap.innerHTML = html;
 }
 
-/* ================= ДЕЙСТВИЯ ================= */
 function renameDate(idx) {
   if (!IS_EDIT_MODE) return;
   var cur = data.dates[idx] || '';
   var d = prompt('Введите дату (или оставьте пустым, чтобы стереть):', cur);
   if (d === null) return;
   data.dates[idx] = d.trim();
-  saveDataToDB();
+  saveDataToCloud();
 }
 
 var popup = document.getElementById('popup');
@@ -436,19 +394,15 @@ function showCellDropdown(e, idx, student) {
   if (!IS_EDIT_MODE) return;
   e.stopPropagation();
   activeCell = { idx: idx, student: student };
-  
   var td = e.target;
   var rect = td.getBoundingClientRect();
   popup.style.display = 'flex';
-  
   var left = rect.left + window.scrollX + (rect.width / 2) - (popup.offsetWidth / 2);
   if (left < 4) left = 4;
   if (left + popup.offsetWidth > window.innerWidth - 4) left = window.innerWidth - popup.offsetWidth - 4;
   var top = rect.bottom + window.scrollY + 3;
-  
   popup.style.left = left + 'px';
   popup.style.top = top + 'px';
-  
   setTimeout(function(){ document.addEventListener('click', outsideClick); }, 10);
 }
 
@@ -468,7 +422,7 @@ document.querySelectorAll('.pi').forEach(function(el) {
     var key = activeCell.idx + '|' + activeCell.student;
     if (v) data.marks[key] = v; else delete data.marks[key];
     closePopup();
-    saveDataToDB();
+    saveDataToCloud();
   });
 });
 
@@ -481,7 +435,7 @@ function addStudent() {
   data.students.push(name);
   data.statuses[name] = 'питается';
   input.value = '';
-  saveDataToDB();
+  saveDataToCloud();
 }
 
 function removeStudent(name) {
@@ -489,7 +443,7 @@ function removeStudent(name) {
   if (!confirm('Удалить "' + name + '"?')) return;
   data.students = data.students.filter(function(s){ return s !== name; });
   delete data.statuses[name];
-  saveDataToDB();
+  saveDataToCloud();
 }
 
 function changeStatus(ev, name) {
@@ -498,7 +452,7 @@ function changeStatus(ev, name) {
   var current = data.statuses[name] || 'питается';
   var next = current === 'питается' ? 'не питается' : (current === 'не питается' ? 'бесплатно' : 'питается');
   data.statuses[name] = next;
-  saveDataToDB();
+  saveDataToCloud();
 }
 
 function makeOrder() {
@@ -522,79 +476,18 @@ function makeOrder() {
   else result = '';
 
   data.orders[idx] = result;
-  saveDataToDB();
+  saveDataToCloud();
 }
 
-/* ================= СКРИНШОТ И СКАЧИВАНИЕ ================= */
 function takeScreenshot() {
   var wrap = document.getElementById('mark-table-wrapper');
   if (!wrap.innerHTML.trim()) { alert('Таблица пуста'); return; }
-
-  var oldMaxHeight = wrap.style.maxHeight;
-  var oldOverflow = wrap.style.overflow;
-  var oldWidth = wrap.style.width;
-  var table = wrap.querySelector('table');
-  var oldTableWidth = table ? table.style.width : '';
-
-  wrap.style.maxHeight = 'none';
-  wrap.style.overflow = 'visible';
-  wrap.style.width = 'max-content';
-  if (table) table.style.width = 'max-content';
-
-  requestAnimationFrame(function() {
-    setTimeout(function() {
-      html2canvas(wrap, {
-        backgroundColor: '#0b0f19',
-        scale: 2,
-        useCORS: true,
-        windowWidth: wrap.scrollWidth,
-        windowHeight: wrap.scrollHeight,
-        width: wrap.scrollWidth,
-        height: wrap.scrollHeight
-      }).then(function(canvas) {
-        wrap.style.maxHeight = oldMaxHeight;
-        wrap.style.overflow = oldOverflow;
-        wrap.style.width = oldWidth;
-        if (table) table.style.width = oldTableWidth;
-
-        var link = document.createElement('a');
-        link.download = 'Питание_скриншот.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-      }).catch(function() {
-        wrap.style.maxHeight = oldMaxHeight;
-        wrap.style.overflow = oldOverflow;
-        wrap.style.width = oldWidth;
-        if (table) table.style.width = oldTableWidth;
-        alert('Не удалось сделать скриншот');
-      });
-    }, 100);
+  html2canvas(wrap, { backgroundColor: '#0b0f19', scale: 2, useCORS: true }).then(function(canvas) {
+    var link = document.createElement('a');
+    link.download = 'Питание_скриншот.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
   });
-}
-
-function exportJson(){
-  var a = document.createElement('a');
-  a.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(data));
-  a.download = 'journal_food_backup.json';
-  document.body.appendChild(a); a.click(); a.remove();
-}
-
-function importJson(inp){
-  if (!inp.files || !inp.files[0] || !IS_EDIT_MODE) return;
-  var r = new FileReader();
-  r.onload = function(e){
-    try {
-      var j = JSON.parse(e.target.result);
-      if (j && j.students && j.dates) { 
-        data = j; 
-        if (!data._savedAt) data._savedAt = Date.now(); 
-        saveDataToDB(); 
-      }
-      else alert('Файл не подходит');
-    } catch(err){ alert('Ошибка чтения'); }
-  };
-  r.readAsText(inp.files[0]);
-  inp.value = '';
 }
 </script>
 
