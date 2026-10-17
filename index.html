@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Журнал питания</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#0b0f19;--panel:#171e2e;--txt:#f8fafc;--mut:#94a3b8;--acc:#38bdf8;--ok:#34d399;--bad:#f87171;--warn:#fbbf24;--brd:#334155}
+*{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--txt);padding:10px;padding-bottom:40px;min-height:100vh;display:flex;flex-direction:column}
+
+/* --- ЭКРАНЫ ВХОДА --- */
+#pin-screen,#class-screen{position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:1000;padding:15px}
+#class-screen{display:none}
+.box{background:var(--panel);padding:30px;border-radius:16px;text-align:center;box-shadow:0 0 25px rgba(56,189,248,.2);width:100%;max-width:400px;border:1px solid var(--brd)}
+.box h2{margin-bottom:15px;font-size:20px}
+.box input{width:100%;padding:14px;font-size:24px;text-align:center;background:var(--bg);color:#fff;border:2px solid var(--brd);border-radius:8px;margin-bottom:15px;letter-spacing:5px}
+.class-btn{background:var(--panel);border:2px solid var(--brd);color:var(--txt);padding:24px 20px;border-radius:14px;font-size:22px;font-weight:800;cursor:pointer;width:100%;margin-bottom:12px;transition:.2s;text-transform:uppercase;letter-spacing:2px}
+.class-btn:hover,.class-btn:active{border-color:var(--acc);background:rgba(56,189,248,.1)}
+.class-btn .sub{display:block;font-size:13px;color:var(--mut);font-weight:normal;margin-top:6px;letter-spacing:0;text-transform:none}
+#pin-err{color:var(--bad);font-size:13px;min-height:16px;margin-top:8px}
+
+/* --- ОСНОВНОЕ МЕНЮ --- */
+#main{display:none;max-width:1400px;margin:0 auto;width:100%}
+header{background:var(--panel);padding:15px;padding-top:46px;border-radius:14px;margin-bottom:15px;display:flex;flex-direction:column;gap:10px;border:1px solid var(--brd);position:relative}
+.btn-menu{position:absolute;top:10px;left:10px;background:#475569;color:#fff;border:1px solid var(--brd);padding:6px 12px;font-size:12px;border-radius:6px;cursor:pointer;font-weight:bold;transition:.2s}
+.btn-menu:hover{background:var(--acc);color:#0b0f19;border-color:var(--acc)}
+header h1{font-size:20px;text-align:center;color:var(--acc);font-weight:800;text-transform:uppercase;letter-spacing:1px}
+.top-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:15px}
+.btn{background:var(--acc);color:#0b0f19;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:bold;transition:.2s}
+.btn:active{transform:scale(.98)}
+.btn-sec{background:#475569;color:#fff;padding:10px 16px;font-size:14px;border:1px solid var(--brd);border-radius:8px;cursor:pointer;font-weight:bold}
+.btn-ok{background:var(--ok);color:#0b0f19;padding:10px 16px;font-size:14px;border-radius:8px;border:none;cursor:pointer;font-weight:bold}
+.btn-bad{background:var(--bad);color:#fff;padding:10px 16px;font-size:14px;border-radius:8px;border:none;cursor:pointer;font-weight:bold}
+
+/* --- ТАБЛИЦА --- */
+.tc{overflow:auto;max-height:75vh;margin-top:10px;border:1px solid var(--brd);border-radius:8px;background:var(--bg);-webkit-overflow-scrolling:touch;position:relative}
+table{width:100%;border-collapse:separate;border-spacing:0;min-width:500px}
+th,td{border-right:1px solid var(--brd);border-bottom:1px solid var(--brd);padding:0 8px;text-align:center;font-size:14px;white-space:nowrap;background:var(--bg);height:42px;line-height:42px;}
+th{background:#1e293b;color:var(--acc);font-weight:700;position:sticky;top:0;z-index:3}
+.col-num{position:sticky;left:0;background:#1e293b!important;z-index:4;width:40px;min-width:40px;text-align:center}
+.col-nm{text-align:left!important;font-weight:600;min-width:160px;background:var(--panel)!important;position:sticky;left:40px;box-shadow:4px 0 5px rgba(0,0,0,.3);z-index:4}
+td.col-num{background:var(--bg)!important;z-index:2}
+td.col-nm{background:var(--bg)!important;z-index:2}
+th.col-num,th.col-nm{z-index:6}
+th.date-head{cursor:pointer;min-width:55px}
+th.date-head:hover{background:#1f2937;color:#58a6ff}
+
+/* ЯЧЕЙКИ */
+.gc{cursor:pointer;font-weight:bold;min-width:45px;transition:.1s;text-align:center;position:relative;}
+.gc:hover{background:rgba(56,189,248,.1)}
+.gc.ab{color:var(--warn)!important;background:rgba(251,191,36,.1)}
+
+/* Обновленные плюсики: жирные, прозрачный фон, фиксированный размер */
+.gc.plus{
+  color: #4ade80 !important; 
+  font-weight: 900 !important; 
+  font-size: 20px !important; 
+  background: rgba(74, 222, 128, 0.1) !important;
+}
+
+/* Строка заявки */
+tr.order-row td{border-top:3px solid var(--txt);font-weight:bold;background:#1e293b;color:var(--ok);height:42px;line-height:42px;}
+tr.order-row td.col-nm{color:var(--acc)}
+tr.order-row td.col-num{background:#1e293b!important}
+tr.order-row .gc{background:#1e293b;border-left:1px solid var(--brd);border-right:1px solid var(--brd);text-align:center;color:var(--ok)}
+tr.order-row .gc.empty{color:#475569}
+
+/* Выпадашка под ячейкой */
+#popup{position:absolute;display:none;background:#1e293b;border:2px solid var(--acc);border-radius:12px;padding:6px;box-shadow:0 10px 25px rgba(0,0,0,.7);z-index:2000;flex-direction:row;gap:4px;overflow-x:auto;max-width:95vw;align-items:center}
+.pi{background:var(--bg)!important;border:1px solid var(--brd)!important;color:#fff!important;text-align:center!important;padding:8px 14px!important;border-radius:6px!important;font-weight:bold!important;cursor:pointer!important;font-size:15px!important;width:auto!important;display:inline-block!important}
+.pi:hover{background:var(--acc)!important;color:#0b0f19!important}
+.pi.clr{background:var(--bad)!important;color:#fff!important;font-size:13px!important}
+
+/* Список класса */
+.si{display:flex;justify-content:space-between;align-items:center;padding:12px 8px;border-bottom:1px solid var(--brd);background:var(--bg);margin-bottom:5px;border-radius:6px}
+.btn-del{background:var(--bad)!important;color:#fff!important;width:28px!important;height:28px!important;padding:0!important;border-radius:50%!important;font-size:12px!important;display:flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;border:none!important}
+#sv{position:fixed;bottom:12px;right:12px;background:#1e293b;color:#fff;padding:8px 14px;border-radius:20px;font-size:13px;border:1px solid var(--brd);opacity:0;transition:opacity .3s;pointer-events:none;z-index:3000}
+#sv.show{opacity:1}
+.form-group{margin-bottom:14px;display:flex;flex-direction:column}
+.form-group label{margin-bottom:6px;font-weight:600;font-size:14px;color:var(--mut)}
+.form-group input{padding:12px;border:1px solid var(--brd);border-radius:8px;font-size:16px;background:var(--bg);color:#fff}
+</style>
+</head>
+<body>
+
+<!-- ЭКРАН ВХОДА -->
+<div id="pin-screen">
+  <div class="box">
+    <h2>Вход в журнал</h2>
+    <input type="password" id="pin-input" inputmode="numeric" placeholder="ПИН" maxlength="4">
+    <button class="btn" id="btn-login" style="width:100%">Войти</button>
+    <div id="pin-err"></div>
+  </div>
+</div>
+
+<!-- ВЫБОР РАЗДЕЛА -->
+<div id="class-screen">
+  <div class="box">
+    <h2>Меню</h2>
+    <button class="class-btn" onclick="openPage('view')">Просмотреть<span class="sub">таблица питания</span></button>
+    <button class="class-btn" onclick="openPage('mark')">Отметить<span class="sub">внести данные</span></button>
+    <button class="class-btn" onclick="openPage('edit')">Изменить<span class="sub">ученики и настройки</span></button>
+  </div>
+</div>
+
+<!-- ВСПЛЫВАЮЩЕЕ МЕНЮ + / н / Стереть -->
+<div id="popup">
+  <div class="pi" data-g="+">+</div>
+  <div class="pi" data-g="н">н</div>
+  <div class="pi clr" data-g="">Стереть</div>
+</div>
+
+<div id="sv" class="">Сохранено в облако ✓</div>
+
+<!-- ОСНОВНОЙ ЭКРАН -->
+<div id="main">
+  <header>
+    <button class="btn-menu" id="btn-menu">🏠 Меню</button>
+    <h1>Журнал питания</h1>
+    <div id="user-mode" style="text-align:center;font-size:12px;color:var(--mut)"></div>
+  </header>
+
+  <!-- ПРОСМОТРЕТЬ -->
+  <div id="p-view" class="panel" style="display:none">
+    <h3 style="margin-bottom:15px;color:var(--acc)">Просмотр</h3>
+    <div class="tc" id="view-table-wrapper"></div>
+  </div>
+
+  <!-- ОТМЕТИТЬ -->
+  <div id="p-mark" class="panel" style="display:none">
+    <div class="top-bar">
+      <select id="order-date-select" style="padding:10px;border-radius:8px;background:var(--bg);color:#fff;border:1px solid var(--brd);flex:1"></select>
+      <button class="btn-ok" onclick="makeOrder()">Заявка</button>
+      <button class="btn" onclick="takeScreenshot()">📷</button>
+    </div>
+    <div class="tc" id="mark-table-wrapper"></div>
+  </div>
+
+  <!-- ИЗМЕНИТЬ -->
+  <div id="p-edit" class="panel" style="display:none">
+    <h3 style="margin-bottom:15px;color:var(--acc)">Ученики</h3>
+    
+    <div id="edit-controls" style="display:none">
+        <div class="form-group">
+          <label>Добавить ученика:</label>
+          <input type="text" id="new-student" placeholder="Фамилия Имя">
+        </div>
+        <button class="btn-ok" onclick="addStudent()" style="margin-bottom:20px">Добавить</button>
+    </div>
+    
+    <h4 style="color:var(--mut);margin-bottom:10px">Список класса</h4>
+    <div id="slist"></div>
+
+    <div id="download-controls" style="display:none; gap:10px; flex-wrap:wrap; margin-top:20px; padding-top:15px; border-top:1px dashed var(--brd)">
+      <button class="btn-sec" onclick="exportJson()">📥 JSON</button>
+      <button class="btn-sec" onclick="document.getElementById('imp').click()">📤 Загрузить</button>
+      <input type="file" id="imp" style="display:none" onchange="importJson(this)">
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ================= НАСТРОЙКИ ================= */
+var TEACHER_PIN = '6452';
+var STUDENT_PIN = '8965'; // Пароль для учеников
+var IS_EDIT_MODE = false;
+
+const SUPABASE_URL = 'https://jnwfaarwljqcmbiwfmbz.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_FoWE5TRF8oMgRrKc1coZQ_TwpZKM9Z';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+var data = {
+  students: [],
+  dates: Array(17).fill(""),
+  statuses: {},
+  marks: {},
+  orders: {},
+  _savedAt: Date.now()
+};
+
+/* ================= ЗАГРУЗКА ДАННЫХ ================= */
+async function loadData() {
+  try {
+    const { data: res, error } = await supabase
+      .from('journal_data')
+      .select('content')
+      .eq('id', 1)
+      .single();
+      
+    if (error) throw error;
+    
+    if (res && res.content) {
+      if (res.content.students && res.content.students.length > 0) {
+         data = res.content;
+      } else {
+         data.students = [
+            "Авчинникова Дарья","Аргучинская Евгения","Барановская Таня","Бородич Тимафей",
+            "Буров Никита","Василенко Анастасия","Верютин Артём","Госанов Тимур",
+            "Евдокимов Никита","Зайцев Владимер","Зинена Арина","Зубарь Стас",
+            "Коляденко Кирил","Корбан Мелана","Леухина Ярослава","Лобановский Станислав",
+            "Мороз Артём","Петровская Ева","Рак Камилла","Рыжков Артём",
+            "Синюгин Антон","Синяков Даниил","Тюляндин Клим","Тяпкин Артём",
+            "Федоренка Никита","Харкевич Платон","Цырша Игнат","Ященко Карина"
+         ];
+         data.students.forEach(s => { if (!data.statuses[s]) data.statuses[s] = "питается"; });
+         await saveDataToDB(true); 
+      }
+    }
+  } catch (e) {
+    console.error("Ошибка загрузки:", e);
+  }
+  renderAll();
+}
+
+/* ================= СОХРАНЕНИЕ ================= */
+async function saveDataToDB(silent) {
+  data._savedAt = Date.now();
+  
+  if (!IS_EDIT_MODE) {
+    if (!silent) alert("У вас нет прав на изменение данных (режим ученика).");
+    return;
+  }
+
+  try {
+    const { error } = await supabase
+      .from('journal_data')
+      .update({ content: data })
+      .eq('id', 1);
+      
+    if (error) throw error;
+    if (!silent) showSv("Сохранено в облако ✓");
+  } catch (e) {
+    console.error("Ошибка сохранения:", e);
+    if (!silent) alert("Ошибка сохранения! Проверьте интернет.");
+  }
+}
+
+/* ================= ВХОД ================= */
+document.getElementById('btn-login').addEventListener('click', doLogin);
+document.getElementById('pin-input').addEventListener('keydown', function(e){
+  if (e.key === 'Enter') doLogin();
+});
+
+function doLogin(){
+  var v = document.getElementById('pin-input').value;
+  
+  if (v === TEACHER_PIN) {
+    IS_EDIT_MODE = true;
+    document.getElementById('pin-screen').style.display = 'none';
+    document.getElementById('class-screen').style.display = 'flex';
+    
+    document.getElementById('edit-controls').style.display = 'block';
+    document.getElementById('download-controls').style.display = 'flex';
+    document.getElementById('user-mode').textContent = "Режим учителя (Редактирование)";
+    document.getElementById('user-mode').style.color = "var(--ok)";
+    loadData();
+  } 
+  else if (v === STUDENT_PIN) {
+    IS_EDIT_MODE = false;
+    document.getElementById('pin-screen').style.display = 'none';
+    document.getElementById('class-screen').style.display = 'flex';
+    
+    document.getElementById('edit-controls').style.display = 'none';
+    document.getElementById('download-controls').style.display = 'none';
+    document.getElementById('user-mode').textContent = "Режим ученика (Только просмотр)";
+    document.getElementById('user-mode').style.color = "var(--warn)";
+    loadData();
+  } 
+  else {
+    document.getElementById('pin-err').textContent = 'Неверный ПИН-код';
+    document.getElementById('pin-input').value = '';
+  }
+}
+
+function openPage(name) {
+  document.getElementById('class-screen').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+  
+  document.querySelectorAll('.panel').forEach(function(p){ p.style.display = 'none'; });
+  document.getElementById('p-' + name).style.display = 'block';
+  
+  renderAll();
+}
+
+document.getElementById('btn-menu').addEventListener('click', function(){
+  closePopup();
+  document.getElementById('main').style.display = 'none';
+  document.getElementById('class-screen').style.display = 'flex';
+});
+
+/* ================= СОХРАНЕНИЕ UI ================= */
+function showSv(text, color){
+  var el = document.getElementById('sv');
+  el.textContent = text || 'Сохранено ✓';
+  el.style.color = color || '#fff';
+  el.classList.add('show');
+  clearTimeout(showSv._t);
+  showSv._t = setTimeout(function(){ el.classList.remove('show'); el.style.color = '#fff'; }, 1500);
+}
+
+/* ================= РЕНДЕР ================= */
+function renderAll() {
+  renderTable('view-table-wrapper', false);
+  renderTable('mark-table-wrapper', true);
+  renderClassList();
+  renderDateSelect();
+}
+
+function renderTable(wrapperId, interactive) {
+  var wrap = document.getElementById(wrapperId);
+  if (!wrap) return;
+  var sel = document.getElementById('order-date-select');
+  var selectedIdx = sel ? sel.value : '';
+
+  var html = '<table><thead><tr>';
+  html += '<th class="col-num">№</th>';
+  html += '<th class="col-nm">Фамилия Имя</th>';
+  data.dates.forEach(function(d, i) {
+    var label = d || '&nbsp;';
+    if (interactive && IS_EDIT_MODE) {
+      html += '<th class="date-head" data-idx="' + i + '">' + label + '</th>';
+    } else {
+      html += '<th>' + label + '</th>';
+    }
+  });
+  html += '</tr></thead><tbody>';
+
+  data.students.forEach(function(s, i) {
+    html += '<tr>';
+    html += '<td class="col-num">' + (i + 1) + '</td>';
+    html += '<td class="col-nm">' + s + '</td>';
+    data.dates.forEach(function(d, idx) {
+      var val = data.marks[idx + '|' + s] || '';
+      var cls = 'gc', txt = '-';
+      
+      if (val === '+') { cls += ' plus'; txt = '+'; }
+      if (val === 'н') { cls += ' ab'; txt = 'н'; }
+      
+      if (interactive && IS_EDIT_MODE) {
+        html += '<td class="' + cls + '" data-idx="' + idx + '" data-student="' + s + '">' + txt + '</td>';
+      } else {
+        html += '<td class="' + cls + '">' + txt + '</td>';
+      }
+    });
+    html += '</tr>';
+  });
+
+  // Строка заявки
+  html += '<tr class="order-row">';
+  html += '<td class="col-num"></td>';
+  html += '<td class="col-nm">Заявка</td>';
+  
+  data.dates.forEach(function(d, idx) {
+    var orderVal = data.orders[idx] || '';
+    var txt = orderVal ? orderVal : '-';
+    var emptyClass = orderVal ? '' : 'empty';
+    html += '<td class="gc ' + emptyClass + '">' + txt + '</td>';
+  });
+  html += '</tr></tbody></table>';
+  wrap.innerHTML = html;
+
+  if (interactive && IS_EDIT_MODE) {
+    wrap.querySelectorAll('td.gc').forEach(function(td) {
+      if (td.parentElement.classList.contains('order-row')) return;
+      
+      td.addEventListener('click', function(e){
+        showCellDropdown(e, td.dataset.idx, td.dataset.student);
+      });
+    });
+    
+    wrap.querySelectorAll('th.date-head').forEach(function(th) {
+      th.addEventListener('click', function(){
+        renameDate(th.dataset.idx);
+      });
+    });
+  }
+}
+
+function renderDateSelect() {
+  var sel = document.getElementById('order-date-select');
+  if (!sel) return;
+  var prev = sel.value;
+  sel.innerHTML = '';
+  var hasNamed = false;
+  data.dates.forEach(function(d, i) {
+    if (d) {
+      hasNamed = true;
+      var opt = document.createElement('option');
+      opt.value = i; opt.textContent = d;
+      sel.appendChild(opt);
+    }
+  });
+  if (!hasNamed) {
+    sel.innerHTML = '<option>нет дат</option>';
+  } else if (prev && data.dates[prev]) {
+    sel.value = prev;
+  }
+}
+
+function renderClassList() {
+  var wrap = document.getElementById('slist');
+  if (!wrap) return;
+  var html = '';
+  if (!data.students.length) {
+    html = '<div style="padding:12px;color:var(--mut);text-align:center">Список пуст</div>';
+  }
+  data.students.forEach(function(s, i) {
+    var st = data.statuses[s] || 'питается';
+    var color = st === 'бесплатно' ? 'var(--ok)' : (st === 'не питается' ? 'var(--bad)' : 'var(--mut)');
+    html += '<div class="si">' +
+      '<span style="' + (IS_EDIT_MODE ? 'cursor:pointer' : '') + '" onclick="' + (IS_EDIT_MODE ? 'changeStatus(event, \'' + s + '\')' : '') + '">' + (i + 1) + '. ' + s + ' <small style="color:' + color + '">(' + st + ')</small></span>' +
+      (IS_EDIT_MODE ? '<button class="btn-del" onclick="removeStudent(\'' + s + '\')">✕</button>' : '') +
+    '</div>';
+  });
+  wrap.innerHTML = html;
+}
+
+/* ================= ДЕЙСТВИЯ ================= */
+function renameDate(idx) {
+  if (!IS_EDIT_MODE) return;
+  var cur = data.dates[idx] || '';
+  var d = prompt('Введите дату (или оставьте пустым, чтобы стереть):', cur);
+  if (d === null) return;
+  data.dates[idx] = d.trim();
+  saveDataToDB();
+}
+
+var popup = document.getElementById('popup');
+var activeCell = null;
+
+function showCellDropdown(e, idx, student) {
+  if (!IS_EDIT_MODE) return;
+  e.stopPropagation();
+  activeCell = { idx: idx, student: student };
+  
+  var td = e.target;
+  var rect = td.getBoundingClientRect();
+  popup.style.display = 'flex';
+  
+  var left = rect.left + window.scrollX + (rect.width / 2) - (popup.offsetWidth / 2);
+  if (left < 4) left = 4;
+  if (left + popup.offsetWidth > window.innerWidth - 4) left = window.innerWidth - popup.offsetWidth - 4;
+  var top = rect.bottom + window.scrollY + 3;
+  
+  popup.style.left = left + 'px';
+  popup.style.top = top + 'px';
+  
+  setTimeout(function(){ document.addEventListener('click', outsideClick); }, 10);
+}
+
+function outsideClick(e) {
+  if (!popup.contains(e.target)) closePopup();
+}
+
+function closePopup() {
+  popup.style.display = 'none';
+  document.removeEventListener('click', outsideClick);
+}
+
+document.querySelectorAll('.pi').forEach(function(el) {
+  el.addEventListener('click', function() {
+    if (!activeCell || !IS_EDIT_MODE) return;
+    var v = el.dataset.g;
+    var key = activeCell.idx + '|' + activeCell.student;
+    if (v) data.marks[key] = v; else delete data.marks[key];
+    closePopup();
+    saveDataToDB();
+  });
+});
+
+function addStudent() {
+  if (!IS_EDIT_MODE) return;
+  var input = document.getElementById('new-student');
+  var name = input.value.trim();
+  if (!name) return;
+  if (data.students.includes(name)) { alert('Такой уже есть'); return; }
+  data.students.push(name);
+  data.statuses[name] = 'питается';
+  input.value = '';
+  saveDataToDB();
+}
+
+function removeStudent(name) {
+  if (!IS_EDIT_MODE) return;
+  if (!confirm('Удалить "' + name + '"?')) return;
+  data.students = data.students.filter(function(s){ return s !== name; });
+  delete data.statuses[name];
+  saveDataToDB();
+}
+
+function changeStatus(ev, name) {
+  if (!IS_EDIT_MODE) return;
+  ev.stopPropagation();
+  var current = data.statuses[name] || 'питается';
+  var next = current === 'питается' ? 'не питается' : (current === 'не питается' ? 'бесплатно' : 'питается');
+  data.statuses[name] = next;
+  saveDataToDB();
+}
+
+function makeOrder() {
+  if (!IS_EDIT_MODE) return;
+  var sel = document.getElementById('order-date-select');
+  if (!sel || !sel.value || sel.value === 'нет дат') {
+    alert('Сначала впишите дату (клик по пустому заголовку колонки)'); return;
+  }
+  var idx = sel.value;
+  var pay = 0, free = 0;
+  data.students.forEach(function(s) {
+    if (data.marks[idx + '|' + s] === '+') {
+      if (data.statuses[s] === 'бесплатно') free++;
+      else if (data.statuses[s] === 'питается') pay++;
+    }
+  });
+  var result = '';
+  if (pay > 0 && free > 0) result = pay + '+' + free;
+  else if (pay > 0) result = '' + pay;
+  else if (free > 0) result = '' + free;
+  else result = '';
+
+  data.orders[idx] = result;
+  saveDataToDB();
+}
+
+/* ================= СКРИНШОТ И СКАЧИВАНИЕ ================= */
+function takeScreenshot() {
+  var wrap = document.getElementById('mark-table-wrapper');
+  if (!wrap.innerHTML.trim()) { alert('Таблица пуста'); return; }
+
+  var oldMaxHeight = wrap.style.maxHeight;
+  var oldOverflow = wrap.style.overflow;
+  var oldWidth = wrap.style.width;
+  var table = wrap.querySelector('table');
+  var oldTableWidth = table ? table.style.width : '';
+
+  wrap.style.maxHeight = 'none';
+  wrap.style.overflow = 'visible';
+  wrap.style.width = 'max-content';
+  if (table) table.style.width = 'max-content';
+
+  requestAnimationFrame(function() {
+    setTimeout(function() {
+      html2canvas(wrap, {
+        backgroundColor: '#0b0f19',
+        scale: 2,
+        useCORS: true,
+        windowWidth: wrap.scrollWidth,
+        windowHeight: wrap.scrollHeight,
+        width: wrap.scrollWidth,
+        height: wrap.scrollHeight
+      }).then(function(canvas) {
+        wrap.style.maxHeight = oldMaxHeight;
+        wrap.style.overflow = oldOverflow;
+        wrap.style.width = oldWidth;
+        if (table) table.style.width = oldTableWidth;
+
+        var link = document.createElement('a');
+        link.download = 'Питание_скриншот.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      }).catch(function() {
+        wrap.style.maxHeight = oldMaxHeight;
+        wrap.style.overflow = oldOverflow;
+        wrap.style.width = oldWidth;
+        if (table) table.style.width = oldTableWidth;
+        alert('Не удалось сделать скриншот');
+      });
+    }, 100);
+  });
+}
+
+function exportJson(){
+  var a = document.createElement('a');
+  a.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(data));
+  a.download = 'journal_food_backup.json';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+function importJson(inp){
+  if (!inp.files || !inp.files[0] || !IS_EDIT_MODE) return;
+  var r = new FileReader();
+  r.onload = function(e){
+    try {
+      var j = JSON.parse(e.target.result);
+      if (j && j.students && j.dates) { 
+        data = j; 
+        if (!data._savedAt) data._savedAt = Date.now(); 
+        saveDataToDB(); 
+      }
+      else alert('Файл не подходит');
+    } catch(err){ alert('Ошибка чтения'); }
+  };
+  r.readAsText(inp.files[0]);
+  inp.value = '';
+}
+</script>
+
+</body>
+</html>
