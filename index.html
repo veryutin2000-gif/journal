@@ -175,30 +175,27 @@ var data = {
 
 data.students.forEach(s => { if (!data.statuses[s]) data.statuses[s] = "питается"; });
 
-/* ================= ОБЛАКО (JSONBin) ================= */
-const BIN_ID = "6ad3d3e6ffd5d1605374492d";
-const MASTER_KEY = "$2a$10$bY/xvTFuQsu93F7/K/2fo.asbcz5Iu0XsPDip/iNi/CUWYPSaigra";
-const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+/* ================= ОБЛАКО (npoint.io) ================= */
+const NPOINT_URL = "https://api.npoint.io/f4b8ecac682c912734ce";
 
-// Таймер для отложенного сохранения
+// Таймер для отложенного сохранения (чтобы не спамить)
 let saveTimer = null;
 
 function triggerSave() {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveDataToCloud();
-  }, 1500); // Ждем 1.5 секунды после последнего клика
+  }, 1000); 
 }
 
 async function loadDataFromCloud() {
   try {
-    const res = await fetch(JSONBIN_URL + "/latest", {
-      headers: { 'X-Master-Key': MASTER_KEY }
-    });
+    const res = await fetch(NPOINT_URL);
     if (res.ok) {
       const json = await res.json();
-      if (json.record && json.record.students && json.record.students.length > 0) {
-         data = json.record;
+      // Если в базе уже есть данные (студенты), загружаем их
+      if (json && json.students && json.students.length > 0) {
+         data = json;
       }
     }
   } catch(e) { console.error("Ошибка загрузки:", e); }
@@ -208,11 +205,10 @@ async function loadDataFromCloud() {
 async function saveDataToCloud(silent) {
   if (!IS_EDIT_MODE) return;
   try {
-    const res = await fetch(JSONBIN_URL, {
-      method: 'PUT',
+    const res = await fetch(NPOINT_URL, {
+      method: 'POST', // В npoint.io для перезаписи используется POST
       headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': MASTER_KEY
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(data)
     });
@@ -220,7 +216,6 @@ async function saveDataToCloud(silent) {
     showSv("Сохранено в облако ✓");
   } catch(e) { 
     console.error("Ошибка сохранения:", e);
-    // Если ошибка, покажем, но не будем мешать спамом
     showSv("Ошибка сохранения...", "var(--bad)");
   }
 }
@@ -278,7 +273,7 @@ function showSv(text, color){
   el.style.color = color || '#fff';
   el.classList.add('show');
   clearTimeout(showSv._t);
-  showSv._t = setTimeout(function(){ el.classList.remove('show'); el.style.color = '#fff'; }, 1500);
+  showSv._t = setTimeout(function(){ el.classList.remove('show'); el.style.color = '#fff'; }, 2000);
 }
 
 function renderAll() {
@@ -392,6 +387,7 @@ function renameDate(idx) {
   var d = prompt('Введите дату (или оставьте пустым, чтобы стереть):', cur);
   if (d === null) return;
   data.dates[idx] = d.trim();
+  renderAll();
   triggerSave();
 }
 
