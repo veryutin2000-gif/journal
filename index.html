@@ -179,6 +179,7 @@ data.students.forEach(s => { if (!data.statuses[s]) data.statuses[s] = "пита
 const NPOINT_URL = "https://api.npoint.io/f4b8ecac682c912734ce";
 
 let saveTimer = null;
+let pollTimer = null; // Таймер для проверки обновлений
 
 function triggerSave() {
   if (saveTimer) clearTimeout(saveTimer);
@@ -200,8 +201,25 @@ async function loadDataFromCloud() {
   renderAll();
 }
 
+// Функция автоматической проверки обновлений (чтобы синхронизировать комп и телефон)
+async function pollForUpdates() {
+  if (IS_EDIT_MODE && saveTimer) return; // Если мы сами сохраняем, не дергаем
+  try {
+    const res = await fetch(NPOINT_URL);
+    if (res.ok) {
+      const json = await res.json();
+      // Если данные изменились (сравниваем время или количество), обновляем
+      if (json && json.students && json._savedAt !== data._savedAt) {
+         data = json;
+         renderAll();
+      }
+    }
+  } catch(e) {}
+}
+
 async function saveDataToCloud(silent) {
   if (!IS_EDIT_MODE) return;
+  data._savedAt = Date.now(); // Ставим метку времени
   try {
     const res = await fetch(NPOINT_URL, {
       method: 'POST',
@@ -233,12 +251,12 @@ function doLogin(){
     document.getElementById('user-mode').textContent = "Режим учителя (Редактирование)";
     document.getElementById('user-mode').style.color = "var(--ok)";
     
-    // Показываем все кнопки учителю
     document.getElementById('btn-view').style.display = 'block';
     document.getElementById('btn-mark').style.display = 'block';
     document.getElementById('btn-edit').style.display = 'block';
     
     loadDataFromCloud();
+    startPolling(); // Запускаем авто-обновление
   } 
   else if (v === STUDENT_PIN) {
     IS_EDIT_MODE = false;
@@ -248,17 +266,23 @@ function doLogin(){
     document.getElementById('user-mode').textContent = "Режим ученика (Только просмотр)";
     document.getElementById('user-mode').style.color = "var(--warn)";
     
-    // СКРЫВАЕМ кнопки для ученика
     document.getElementById('btn-view').style.display = 'block';
     document.getElementById('btn-mark').style.display = 'none';
     document.getElementById('btn-edit').style.display = 'none';
     
     loadDataFromCloud();
+    startPolling(); // Запускаем авто-обновление
   } 
   else {
     document.getElementById('pin-err').textContent = 'Неверный ПИН-код';
     document.getElementById('pin-input').value = '';
   }
+}
+
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  // Каждые 5 секунд проверяем облако на наличие новых данных
+  pollTimer = setInterval(pollForUpdates, 5000);
 }
 
 function openPage(name) {
