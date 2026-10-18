@@ -97,9 +97,9 @@ tr.order-row .gc.empty{color:#475569}
 <div id="class-screen">
   <div class="box">
     <h2>Меню</h2>
-    <button class="class-btn" onclick="openPage('view')">Просмотреть<span class="sub">таблица питания</span></button>
-    <button class="class-btn" onclick="openPage('mark')">Отметить<span class="sub">внести данные</span></button>
-    <button class="class-btn" onclick="openPage('edit')">Изменить<span class="sub">ученики и настройки</span></button>
+    <button id="btn-view" class="class-btn" onclick="openPage('view')">Просмотреть<span class="sub">таблица питания</span></button>
+    <button id="btn-mark" class="class-btn" onclick="openPage('mark')">Отметить<span class="sub">внести данные</span></button>
+    <button id="btn-edit" class="class-btn" onclick="openPage('edit')">Изменить<span class="sub">ученики и настройки</span></button>
   </div>
 </div>
 
@@ -178,7 +178,6 @@ data.students.forEach(s => { if (!data.statuses[s]) data.statuses[s] = "пита
 /* ================= ОБЛАКО (npoint.io) ================= */
 const NPOINT_URL = "https://api.npoint.io/f4b8ecac682c912734ce";
 
-// Таймер для отложенного сохранения (чтобы не спамить)
 let saveTimer = null;
 
 function triggerSave() {
@@ -193,7 +192,6 @@ async function loadDataFromCloud() {
     const res = await fetch(NPOINT_URL);
     if (res.ok) {
       const json = await res.json();
-      // Если в базе уже есть данные (студенты), загружаем их
       if (json && json.students && json.students.length > 0) {
          data = json;
       }
@@ -206,10 +204,8 @@ async function saveDataToCloud(silent) {
   if (!IS_EDIT_MODE) return;
   try {
     const res = await fetch(NPOINT_URL, {
-      method: 'POST', // В npoint.io для перезаписи используется POST
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
     if (!res.ok) throw new Error("Ошибка сети");
@@ -236,6 +232,12 @@ function doLogin(){
     document.getElementById('edit-controls').style.display = 'block';
     document.getElementById('user-mode').textContent = "Режим учителя (Редактирование)";
     document.getElementById('user-mode').style.color = "var(--ok)";
+    
+    // Показываем все кнопки учителю
+    document.getElementById('btn-view').style.display = 'block';
+    document.getElementById('btn-mark').style.display = 'block';
+    document.getElementById('btn-edit').style.display = 'block';
+    
     loadDataFromCloud();
   } 
   else if (v === STUDENT_PIN) {
@@ -245,6 +247,12 @@ function doLogin(){
     document.getElementById('edit-controls').style.display = 'none';
     document.getElementById('user-mode').textContent = "Режим ученика (Только просмотр)";
     document.getElementById('user-mode').style.color = "var(--warn)";
+    
+    // СКРЫВАЕМ кнопки для ученика
+    document.getElementById('btn-view').style.display = 'block';
+    document.getElementById('btn-mark').style.display = 'none';
+    document.getElementById('btn-edit').style.display = 'none';
+    
     loadDataFromCloud();
   } 
   else {
