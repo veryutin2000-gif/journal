@@ -93,7 +93,6 @@ tr.order-row .gc.empty{color:#475569}
     <button id="btn-view" class="class-btn" onclick="openPage('view')">Просмотреть<span class="sub">таблица питания</span></button>
     <button id="btn-mark" class="class-btn" onclick="openPage('mark')">Отметить<span class="sub">внести данные</span></button>
     <button id="btn-edit" class="class-btn" onclick="openPage('edit')">Изменить<span class="sub">ученики и настройки</span></button>
-    <!-- Кнопки главного учителя (появляются только по паролю 1904) -->
     <button id="btn-history" class="class-btn" onclick="openPage('history')" style="display:none; border-color:#fbbf24; color:#fbbf24;">История<span class="sub">кто заходил и менял</span></button>
     <button id="btn-diary" class="class-btn" onclick="openPage('diary')" style="display:none; border-color:#f87171; color:#f87171;">Дневник<span class="sub">посещаемость за период</span></button>
   </div>
@@ -114,13 +113,11 @@ tr.order-row .gc.empty{color:#475569}
     <div id="user-mode" style="text-align:center;font-size:12px;color:var(--mut)"></div>
   </header>
 
-  <!-- ПРОСМОТРЕТЬ -->
   <div id="p-view" class="panel" style="display:none">
     <h3 style="margin-bottom:15px;color:var(--acc)">Просмотр</h3>
     <div class="tc" id="view-table-wrapper"></div>
   </div>
 
-  <!-- ОТМЕТИТЬ -->
   <div id="p-mark" class="panel" style="display:none">
     <div class="top-bar">
       <select id="order-date-select" style="padding:10px;border-radius:8px;background:var(--bg);color:#fff;border:1px solid var(--brd);flex:1"></select>
@@ -130,7 +127,6 @@ tr.order-row .gc.empty{color:#475569}
     <div class="tc" id="mark-table-wrapper"></div>
   </div>
 
-  <!-- ИЗМЕНИТЬ -->
   <div id="p-edit" class="panel" style="display:none">
     <h3 style="margin-bottom:15px;color:var(--acc)">Ученики</h3>
     <div id="edit-controls" style="display:none">
@@ -144,7 +140,6 @@ tr.order-row .gc.empty{color:#475569}
     <div id="slist"></div>
   </div>
 
-  <!-- ИСТОРИЯ (только для главного) -->
   <div id="p-history" class="panel" style="display:none">
     <h3 style="margin-bottom:15px;color:var(--warn)">История входов</h3>
     <div class="result-box" id="history-box">
@@ -152,7 +147,6 @@ tr.order-row .gc.empty{color:#475569}
     </div>
   </div>
 
-  <!-- ДНЕВНИК (только для главного) -->
   <div id="p-diary" class="panel" style="display:none">
     <h3 style="margin-bottom:15px;color:var(--bad)">Дневник посещаемости</h3>
     <div class="select-group">
@@ -194,7 +188,7 @@ var data = {
   statuses: {},
   marks: {},
   orders: {},
-  history: [] // Тут будет храниться история входов
+  history: [] 
 };
 
 data.students.forEach(s => { if (!data.statuses[s]) data.statuses[s] = "питается"; });
@@ -216,7 +210,7 @@ async function loadDataFromCloud() {
       const json = await res.json();
       if (json && json.students && json.students.length > 0) {
          data = json;
-         if (!data.history) data.history = []; // На случай старых данных
+         if (!data.history) data.history = []; 
       }
     }
   } catch(e) { console.error("Ошибка загрузки:", e); }
@@ -267,10 +261,11 @@ function doLogin(){
   if (v === TEACHER_PIN || v === STUDENT_PIN || v === MAIN_PIN) {
     var role = (v === MAIN_PIN) ? 'Главный' : (v === TEACHER_PIN ? 'Учитель' : 'Ученик');
     
-    // Записываем в историю
     if (!data.history) data.history = [];
     data.history.unshift({ time: now, role: role, device: dev });
-    if (data.history.length > 50) data.history.pop(); // Храним только 50 последних
+    if (data.history.length > 50) data.history.pop(); 
+    
+    // Сразу сохраняем историю в облако, не дожидаясь таймера
     saveDataToCloud(true);
 
     document.getElementById('pin-screen').style.display = 'none';
@@ -328,7 +323,17 @@ function openPage(name) {
   document.querySelectorAll('.panel').forEach(function(p){ p.style.display = 'none'; });
   document.getElementById('p-' + name).style.display = 'block';
   
-  if (name === 'history') renderHistory();
+  if (name === 'history') {
+    // Принудительно скачиваем свежие данные из облака перед показом истории
+    fetch(NPOINT_URL).then(r => r.json()).then(json => {
+        if (json && json.history) {
+            data = json;
+            renderHistory();
+        } else {
+            renderHistory();
+        }
+    }).catch(() => renderHistory());
+  }
   if (name === 'diary') initDiarySelects();
   
   renderAll();
@@ -358,7 +363,6 @@ function renderHistory() {
   }
   var html = '<ul style="list-style:none;padding:0;">';
   data.history.forEach(function(h) {
-    // Определяем устройство по UserAgent
     var device = h.device;
     var devName = "Компьютер";
     if (/Android/i.test(device)) devName = "Телефон (Android)";
@@ -381,13 +385,11 @@ function initDiarySelects() {
   var fromSel = document.getElementById('diary-date-from');
   var toSel = document.getElementById('diary-date-to');
   
-  // Заполняем учеников
   stSel.innerHTML = '<option value="">Выберите ученика...</option>';
   data.students.forEach(function(s) {
     stSel.innerHTML += '<option value="' + s + '">' + s + '</option>';
   });
 
-  // Заполняем даты
   var validDates = data.dates.filter(function(d) { return d && d.trim() !== ""; });
   fromSel.innerHTML = '<option value="">С даты...</option>';
   toSel.innerHTML = '<option value="">По дату...</option>';
@@ -405,29 +407,24 @@ function generateDiary() {
   var resBox = document.getElementById('diary-result');
 
   if (!student || !fromDate || !toDate) {
-    alert("Выберите ученика и период!");
-    return;
+    alert("Выберите ученика и период!"); return;
   }
 
-  // Получаем все даты в диапазоне
   var validDates = data.dates.filter(function(d) { return d && d.trim() !== ""; });
   var startIndex = validDates.indexOf(fromDate);
   var endIndex = validDates.indexOf(toDate);
   
   if (startIndex === -1 || endIndex === -1 || startIndex > endIndex) {
-    alert("Неверный диапазон дат!");
-    return;
+    alert("Неверный диапазон дат!"); return;
   }
 
   var datesInRange = validDates.slice(startIndex, endIndex + 1);
   var absentDates = [];
-  var presentDates = [];
 
   datesInRange.forEach(function(d) {
     var idx = data.dates.indexOf(d);
     var val = data.marks[idx + '|' + student];
     if (val === 'н') absentDates.push(d);
-    else if (val === '+') presentDates.push(d);
   });
 
   var html = '<h3>' + student + '</h3>';
