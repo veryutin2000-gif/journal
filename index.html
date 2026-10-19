@@ -200,12 +200,13 @@ var data = {
 
 data.students.forEach(s => { if (!data.statuses[s]) data.statuses[s] = "питается"; });
 
-/* ================= ОБЛАКО (npoint.io) ================= */
-const NPOINT_URL = "https://api.npoint.io/f4b8ecac682c912734ce";
+/* ================= ОБЛАКО (JSONBlob) ================= */
+const BLOB_ID = "01a15593-12e7-70b5-81f8-9ee568b7a5d7";
+const JSONBLOB_URL = "https://jsonblob.com/api/jsonBlob/" + BLOB_ID;
 
 async function loadDataFromCloud() {
   try {
-    const res = await fetch(NPOINT_URL);
+    const res = await fetch(JSONBLOB_URL, { cache: 'no-cache' });
     if (res.ok) {
       const json = await res.json();
       if (json && json.students && json.students.length > 0) {
@@ -217,33 +218,31 @@ async function loadDataFromCloud() {
   initDiarySelects();
 }
 
-// Отправка данных БЕЗ задержки
-async function saveDataToCloud() {
+async function saveDataToCloud(silent) {
   if (!IS_EDIT_MODE && !IS_MAIN_MODE) return;
   data._savedAt = Date.now();
   try {
-    const res = await fetch(NPOINT_URL, {
-      method: 'POST',
+    const res = await fetch(JSONBLOB_URL, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
     if (!res.ok) throw new Error("Ошибка сети");
-    showSv("Сохранено в облако ✓");
+    if (!silent) showSv("Сохранено в облако ✓");
   } catch(e) { 
     console.error("Ошибка сохранения:", e);
-    showSv("Ошибка сохранения...", "var(--bad)");
+    if (!silent) showSv("Ошибка сохранения...", "var(--bad)");
   }
 }
 
-// Проверка обновлений с других устройств (раз в 3 секунды)
+// Проверка обновлений с других устройств
 setInterval(async function() {
   if (!IS_EDIT_MODE && !IS_MAIN_MODE) return;
   try {
-    const res = await fetch(NPOINT_URL);
+    const res = await fetch(JSONBLOB_URL, { cache: 'no-cache' });
     if (res.ok) {
       const json = await res.json();
       if (json && json.students && json._savedAt !== data._savedAt) {
-         // Если данные обновились с другого устройства, перезагружаем
          data = json;
          renderAll();
       }
@@ -315,7 +314,6 @@ function openPage(name) {
   document.querySelectorAll('.panel').forEach(function(p){ p.style.display = 'none'; });
   document.getElementById('p-' + name).style.display = 'block';
   
-  // Принудительно скачиваем свежие данные при переходе на страницу
   loadDataFromCloud();
   
   if (name === 'diary') initDiarySelects();
@@ -348,7 +346,7 @@ function markAll() {
   var idx = sel.value;
   data.students.forEach(function(s) { data.marks[idx + '|' + s] = '+'; });
   renderAll();
-  saveDataToCloud(); // Мгновенное сохранение
+  saveDataToCloud();
 }
 
 function addDate() {
@@ -670,7 +668,7 @@ document.querySelectorAll('.pi').forEach(function(el) {
     if (v) data.marks[key] = v; else delete data.marks[key];
     closePopup();
     renderAll();
-    saveDataToCloud(); // Мгновенное сохранение
+    saveDataToCloud();
   });
 });
 
