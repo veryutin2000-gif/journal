@@ -43,6 +43,11 @@ th{background:#1e293b;color:var(--acc);font-weight:700;position:sticky;top:0;z-i
 td.col-num{background:var(--bg)!important;z-index:2}
 td.col-nm{background:var(--bg)!important;z-index:2}
 th.col-num,th.col-nm{z-index:6}
+
+/* Кликабельные даты в шапке */
+th.date-head { cursor: pointer; min-width: 60px; transition: 0.2s; }
+th.date-head:hover { background: #334155; color: #fff; }
+
 .gc{cursor:pointer;font-weight:bold;min-width:45px;transition:.1s;text-align:center;position:relative;}
 .gc:hover{background:rgba(56,189,248,.1)}
 .gc.ab{color:var(--warn)!important;background:rgba(251,191,36,.1)}
@@ -120,7 +125,6 @@ tr.order-row .gc.empty{color:#475569}
 
   <div id="p-mark" class="panel" style="display:none">
     <div class="top-bar">
-      <button class="btn" onclick="addDate()" id="btn-add-date">+ Добавить дату</button>
       <select id="order-date-select" style="padding:10px;border-radius:8px;background:var(--bg);color:#fff;border:1px solid var(--brd);flex:1"></select>
       <button class="btn-ok" onclick="makeOrder()">Заявка</button>
       <button class="btn" onclick="markAll()" style="background:#fbbf24; color:#000;">Всех +</button>
@@ -248,7 +252,6 @@ function doLogin(){
     if (v === TEACHER_PIN) {
       IS_EDIT_MODE = true;
       document.getElementById('edit-controls').style.display = 'block';
-      document.getElementById('btn-add-date').style.display = 'block';
       document.getElementById('user-mode').textContent = "Режим учителя";
       document.getElementById('user-mode').style.color = "var(--ok)";
       document.getElementById('btn-view').style.display = 'block';
@@ -259,7 +262,6 @@ function doLogin(){
     else {
       IS_EDIT_MODE = false;
       document.getElementById('edit-controls').style.display = 'none';
-      document.getElementById('btn-add-date').style.display = 'none';
       document.getElementById('user-mode').textContent = "Режим ученика";
       document.getElementById('user-mode').style.color = "var(--warn)";
       document.getElementById('btn-view').style.display = 'block';
@@ -302,23 +304,30 @@ function showSv(text, color){
   setTimeout(function(){ el.classList.remove('show'); }, 2000);
 }
 
-/* ================= НОВЫЕ ФУНКЦИИ ================= */
+/* ================= ФУНКЦИИ ================= */
 
-// Возвращаем добавление дат (через всплывающее окно, как раньше)
-function addDate() {
+// Клик по заголовку даты (добавление/изменение/удаление)
+function handleDateClick(idx) {
   if (!IS_EDIT_MODE) return;
-  var d = prompt('Введите новую дату (например, 02.10):');
-  if (!d || d.trim() === '') return;
+  
+  var cur = data.dates[idx] || '';
+  var promptText = cur ? 'Измените дату (или сотрите, чтобы удалить):' : 'Введите новую дату (например, 02.10):';
+  
+  var d = prompt(promptText, cur);
+  if (d === null) return; // Нажали Отмена
+  
   d = d.trim();
   
-  if (data.dates.includes(d)) { alert('Такая дата уже есть'); return; }
-  
-  var emptyIdx = data.dates.indexOf("");
-  if (emptyIdx !== -1) {
-    data.dates[emptyIdx] = d;
+  // Если стерли дату
+  if (d === '') {
+    data.dates[idx] = '';
+    data.students.forEach(function(s) { delete data.marks[idx + '|' + s]; });
   } else {
-    data.dates.push(d);
-    data.dates.push(""); 
+    // Проверка на дубликат
+    if (d !== cur && data.dates.includes(d)) {
+      alert('Такая дата уже есть!'); return;
+    }
+    data.dates[idx] = d;
   }
   
   renderAll();
@@ -449,9 +458,16 @@ function renderTable(wrapperId, interactive) {
   var html = '<table><thead><tr>';
   html += '<th class="col-num">№</th>';
   html += '<th class="col-nm">Фамилия Имя</th>';
-  data.dates.forEach(function(d) {
+  
+  // Рендер шапки с датами
+  data.dates.forEach(function(d, i) {
     var label = d || '&nbsp;';
-    html += '<th>' + label + '</th>';
+    if (interactive && IS_EDIT_MODE) {
+      // Если учитель - ячейка кликабельна
+      html += '<th class="date-head" onclick="handleDateClick(' + i + ')" title="Нажмите, чтобы изменить или удалить">' + label + '</th>';
+    } else {
+      html += '<th>' + label + '</th>';
+    }
   });
   html += '</tr></thead><tbody>';
 
