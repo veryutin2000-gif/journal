@@ -120,6 +120,7 @@ tr.order-row .gc.empty{color:#475569}
 
   <div id="p-mark" class="panel" style="display:none">
     <div class="top-bar">
+      <button class="btn" onclick="addDate()" id="btn-add-date">+ Добавить дату</button>
       <select id="order-date-select" style="padding:10px;border-radius:8px;background:var(--bg);color:#fff;border:1px solid var(--brd);flex:1"></select>
       <button class="btn-ok" onclick="makeOrder()">Заявка</button>
       <button class="btn" onclick="markAll()" style="background:#fbbf24; color:#000;">Всех +</button>
@@ -219,7 +220,6 @@ async function saveDataToCloud(silent) {
   }
 }
 
-// Проверка обновлений с других устройств
 setInterval(async function() {
   if (!IS_EDIT_MODE) return;
   try {
@@ -248,6 +248,7 @@ function doLogin(){
     if (v === TEACHER_PIN) {
       IS_EDIT_MODE = true;
       document.getElementById('edit-controls').style.display = 'block';
+      document.getElementById('btn-add-date').style.display = 'block';
       document.getElementById('user-mode').textContent = "Режим учителя";
       document.getElementById('user-mode').style.color = "var(--ok)";
       document.getElementById('btn-view').style.display = 'block';
@@ -258,6 +259,7 @@ function doLogin(){
     else {
       IS_EDIT_MODE = false;
       document.getElementById('edit-controls').style.display = 'none';
+      document.getElementById('btn-add-date').style.display = 'none';
       document.getElementById('user-mode').textContent = "Режим ученика";
       document.getElementById('user-mode').style.color = "var(--warn)";
       document.getElementById('btn-view').style.display = 'block';
@@ -300,7 +302,28 @@ function showSv(text, color){
   setTimeout(function(){ el.classList.remove('show'); }, 2000);
 }
 
-/* ================= ФУНКЦИИ ================= */
+/* ================= НОВЫЕ ФУНКЦИИ ================= */
+
+// Возвращаем добавление дат (через всплывающее окно, как раньше)
+function addDate() {
+  if (!IS_EDIT_MODE) return;
+  var d = prompt('Введите новую дату (например, 02.10):');
+  if (!d || d.trim() === '') return;
+  d = d.trim();
+  
+  if (data.dates.includes(d)) { alert('Такая дата уже есть'); return; }
+  
+  var emptyIdx = data.dates.indexOf("");
+  if (emptyIdx !== -1) {
+    data.dates[emptyIdx] = d;
+  } else {
+    data.dates.push(d);
+    data.dates.push(""); 
+  }
+  
+  renderAll();
+  saveDataToCloud();
+}
 
 function markAll() {
   if (!IS_EDIT_MODE) return;
