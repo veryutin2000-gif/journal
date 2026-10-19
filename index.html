@@ -43,8 +43,6 @@ th{background:#1e293b;color:var(--acc);font-weight:700;position:sticky;top:0;z-i
 td.col-num{background:var(--bg)!important;z-index:2}
 td.col-nm{background:var(--bg)!important;z-index:2}
 th.col-num,th.col-nm{z-index:6}
-th.date-head{cursor:pointer;min-width:55px}
-th.date-head:hover{background:#1f2937;color:#58a6ff}
 .gc{cursor:pointer;font-weight:bold;min-width:45px;transition:.1s;text-align:center;position:relative;}
 .gc:hover{background:rgba(56,189,248,.1)}
 .gc.ab{color:var(--warn)!important;background:rgba(251,191,36,.1)}
@@ -60,7 +58,11 @@ tr.order-row .gc.empty{color:#475569}
 .pi:hover{background:var(--acc)!important;color:#0b0f19!important}
 .pi.clr{background:var(--bad)!important;color:#fff!important;font-size:13px!important}
 
-.si{display:flex;justify-content:space-between;align-items:center;padding:12px 8px;border-bottom:1px solid var(--brd);background:var(--bg);margin-bottom:5px;border-radius:6px}
+/* Списки (ученики и даты) */
+.si{display:flex;justify-content:space-between;align-items:center;padding:12px 8px;border-bottom:1px solid var(--brd);background:var(--bg);margin-bottom:5px;border-radius:6px;gap:10px}
+.si-name { flex: 1; display: flex; align-items: center; gap: 8px; }
+.btn-icon{background:transparent!important;border:none!important;color:var(--acc)!important;cursor:pointer!important;font-size:16px!important;padding:0 5px!important}
+.btn-icon:hover{color:#fff!important}
 .btn-del{background:var(--bad)!important;color:#fff!important;width:28px!important;height:28px!important;padding:0!important;border-radius:50%!important;font-size:12px!important;display:flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;border:none!important}
 #sv{position:fixed;bottom:12px;right:12px;background:#1e293b;color:#fff;padding:8px 14px;border-radius:20px;font-size:13px;border:1px solid var(--brd);opacity:0;transition:opacity .3s;pointer-events:none;z-index:3000}
 #sv.show{opacity:1}
@@ -68,7 +70,7 @@ tr.order-row .gc.empty{color:#475569}
 .form-group label{margin-bottom:6px;font-weight:600;font-size:14px;color:var(--mut)}
 .form-group input{padding:12px;border:1px solid var(--brd);border-radius:8px;font-size:16px;background:var(--bg);color:#fff}
 
-/* Стили для Дневника и Истории */
+/* Стили для Дневника */
 .select-group{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
 .select-group select{flex:1;min-width:200px;padding:12px;background:var(--bg);color:#fff;border:1px solid var(--brd);border-radius:8px;font-size:16px}
 .result-box{background:var(--bg);padding:20px;border-radius:10px;border:1px solid var(--brd);margin-top:15px;font-size:16px;line-height:1.6}
@@ -92,9 +94,9 @@ tr.order-row .gc.empty{color:#475569}
     <h2>Меню</h2>
     <button id="btn-view" class="class-btn" onclick="openPage('view')">Просмотреть<span class="sub">таблица питания</span></button>
     <button id="btn-mark" class="class-btn" onclick="openPage('mark')">Отметить<span class="sub">внести данные</span></button>
-    <button id="btn-edit" class="class-btn" onclick="openPage('edit')">Изменить<span class="sub">ученики и настройки</span></button>
-    <button id="btn-history" class="class-btn" onclick="openPage('history')" style="display:none; border-color:#fbbf24; color:#fbbf24;">История<span class="sub">кто заходил и менял</span></button>
-    <button id="btn-diary" class="class-btn" onclick="openPage('diary')" style="display:none; border-color:#f87171; color:#f87171;">Дневник<span class="sub">посещаемость за период</span></button>
+    <button id="btn-edit" class="class-btn" onclick="openPage('edit')">Ученики<span class="sub">добавить/изменить</span></button>
+    <button id="btn-dates" class="class-btn" onclick="openPage('dates')">Даты<span class="sub">настройка колонок</span></button>
+    <button id="btn-diary" class="class-btn" onclick="openPage('diary')" style="display:none; border-color:#f87171; color:#f87171;">Дневник<span class="sub">посещаемость</span></button>
   </div>
 </div>
 
@@ -122,6 +124,7 @@ tr.order-row .gc.empty{color:#475569}
     <div class="top-bar">
       <select id="order-date-select" style="padding:10px;border-radius:8px;background:var(--bg);color:#fff;border:1px solid var(--brd);flex:1"></select>
       <button class="btn-ok" onclick="makeOrder()">Заявка</button>
+      <button class="btn" onclick="markAll()" style="background:#fbbf24; color:#000;">Всех +</button>
       <button class="btn" onclick="takeScreenshot()">📷</button>
     </div>
     <div class="tc" id="mark-table-wrapper"></div>
@@ -140,11 +143,17 @@ tr.order-row .gc.empty{color:#475569}
     <div id="slist"></div>
   </div>
 
-  <div id="p-history" class="panel" style="display:none">
-    <h3 style="margin-bottom:15px;color:var(--warn)">История входов</h3>
-    <div class="result-box" id="history-box">
-      Загрузка...
+  <div id="p-dates" class="panel" style="display:none">
+    <h3 style="margin-bottom:15px;color:var(--acc)">Настройка дат</h3>
+    <div id="date-controls" style="display:none">
+        <div class="form-group">
+          <label>Добавить новую дату (например, 02.10):</label>
+          <input type="text" id="new-date-input" placeholder="ДД.ММ">
+        </div>
+        <button class="btn-ok" onclick="addDate()" style="margin-bottom:20px">Добавить дату</button>
     </div>
+    <h4 style="color:var(--mut);margin-bottom:10px">Список дат (стрелки меняют порядок)</h4>
+    <div id="dlist"></div>
   </div>
 
   <div id="p-diary" class="panel" style="display:none">
@@ -187,8 +196,7 @@ var data = {
   dates: Array(17).fill(""),
   statuses: {},
   marks: {},
-  orders: {},
-  history: [] 
+  orders: {}
 };
 
 data.students.forEach(s => { if (!data.statuses[s]) data.statuses[s] = "питается"; });
@@ -210,7 +218,6 @@ async function loadDataFromCloud() {
       const json = await res.json();
       if (json && json.students && json.students.length > 0) {
          data = json;
-         if (!data.history) data.history = []; 
       }
     }
   } catch(e) { console.error("Ошибка загрузки:", e); }
@@ -255,19 +262,8 @@ document.getElementById('pin-input').addEventListener('keydown', function(e){ if
 
 function doLogin(){
   var v = document.getElementById('pin-input').value;
-  var dev = navigator.userAgent;
-  var now = new Date().toLocaleString('ru-RU');
   
   if (v === TEACHER_PIN || v === STUDENT_PIN || v === MAIN_PIN) {
-    var role = (v === MAIN_PIN) ? 'Главный' : (v === TEACHER_PIN ? 'Учитель' : 'Ученик');
-    
-    if (!data.history) data.history = [];
-    data.history.unshift({ time: now, role: role, device: dev });
-    if (data.history.length > 50) data.history.pop(); 
-    
-    // Сразу сохраняем историю в облако, не дожидаясь таймера
-    saveDataToCloud(true);
-
     document.getElementById('pin-screen').style.display = 'none';
     document.getElementById('class-screen').style.display = 'flex';
     
@@ -275,34 +271,37 @@ function doLogin(){
       IS_MAIN_MODE = true;
       IS_EDIT_MODE = true;
       document.getElementById('edit-controls').style.display = 'block';
-      document.getElementById('user-mode').textContent = "Главный режим (Все права)";
+      document.getElementById('date-controls').style.display = 'block';
+      document.getElementById('user-mode').textContent = "Главный режим";
       document.getElementById('user-mode').style.color = "var(--bad)";
       document.getElementById('btn-view').style.display = 'block';
       document.getElementById('btn-mark').style.display = 'block';
       document.getElementById('btn-edit').style.display = 'block';
-      document.getElementById('btn-history').style.display = 'block';
+      document.getElementById('btn-dates').style.display = 'block';
       document.getElementById('btn-diary').style.display = 'block';
     } 
     else if (v === TEACHER_PIN) {
       IS_EDIT_MODE = true;
       document.getElementById('edit-controls').style.display = 'block';
+      document.getElementById('date-controls').style.display = 'block';
       document.getElementById('user-mode').textContent = "Режим учителя";
       document.getElementById('user-mode').style.color = "var(--ok)";
       document.getElementById('btn-view').style.display = 'block';
       document.getElementById('btn-mark').style.display = 'block';
       document.getElementById('btn-edit').style.display = 'block';
-      document.getElementById('btn-history').style.display = 'none';
+      document.getElementById('btn-dates').style.display = 'block';
       document.getElementById('btn-diary').style.display = 'none';
     } 
     else {
       IS_EDIT_MODE = false;
       document.getElementById('edit-controls').style.display = 'none';
+      document.getElementById('date-controls').style.display = 'none';
       document.getElementById('user-mode').textContent = "Режим ученика";
       document.getElementById('user-mode').style.color = "var(--warn)";
       document.getElementById('btn-view').style.display = 'block';
       document.getElementById('btn-mark').style.display = 'none';
       document.getElementById('btn-edit').style.display = 'none';
-      document.getElementById('btn-history').style.display = 'none';
+      document.getElementById('btn-dates').style.display = 'none';
       document.getElementById('btn-diary').style.display = 'none';
     }
     
@@ -323,17 +322,6 @@ function openPage(name) {
   document.querySelectorAll('.panel').forEach(function(p){ p.style.display = 'none'; });
   document.getElementById('p-' + name).style.display = 'block';
   
-  if (name === 'history') {
-    // Принудительно скачиваем свежие данные из облака перед показом истории
-    fetch(NPOINT_URL).then(r => r.json()).then(json => {
-        if (json && json.history) {
-            data = json;
-            renderHistory();
-        } else {
-            renderHistory();
-        }
-    }).catch(() => renderHistory());
-  }
   if (name === 'diary') initDiarySelects();
   
   renderAll();
@@ -354,29 +342,112 @@ function showSv(text, color){
   showSv._t = setTimeout(function(){ el.classList.remove('show'); el.style.color = '#fff'; }, 2000);
 }
 
-/* ================= ИСТОРИЯ ================= */
-function renderHistory() {
-  var box = document.getElementById('history-box');
-  if (!data.history || data.history.length === 0) {
-    box.innerHTML = "История пуста.";
-    return;
-  }
-  var html = '<ul style="list-style:none;padding:0;">';
-  data.history.forEach(function(h) {
-    var device = h.device;
-    var devName = "Компьютер";
-    if (/Android/i.test(device)) devName = "Телефон (Android)";
-    else if (/iPhone|iPad|iPod/i.test(device)) devName = "iPhone / iPad";
-    else if (/Windows/i.test(device)) devName = "Windows (ПК)";
-    else if (/Mac/i.test(device)) devName = "Mac (ПК)";
+/* ================= НОВЫЕ ФУНКЦИИ ================= */
 
-    html += '<li style="padding:10px;border-bottom:1px solid #334155;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
-      '<span><b>' + h.role + '</b> зашел в ' + h.time + '</span>' +
-      '<span style="color:#94a3b8;font-size:13px;">' + devName + '</span>' +
-    '</li>';
+function markAll() {
+  if (!IS_EDIT_MODE) return;
+  var sel = document.getElementById('order-date-select');
+  if (!sel || !sel.value || sel.value === 'нет дат') {
+    alert('Сначала выберите дату!'); return;
+  }
+  if (!confirm('Поставить "+" всем ученикам на выбранную дату?')) return;
+  
+  var idx = sel.value;
+  data.students.forEach(function(s) { data.marks[idx + '|' + s] = '+'; });
+  renderAll();
+  triggerSave();
+}
+
+// --- ФУНКЦИИ ДЛЯ РАБОТЫ С ДАТАМИ ---
+function addDate() {
+  if (!IS_EDIT_MODE) return;
+  var inp = document.getElementById('new-date-input');
+  var d = inp.value.trim();
+  if (!d) return;
+  
+  if (data.dates.includes(d)) { alert('Такая дата уже есть'); return; }
+  
+  // Ищем первую пустую ячейку
+  var emptyIdx = data.dates.indexOf("");
+  if (emptyIdx !== -1) {
+    data.dates[emptyIdx] = d;
+  } else {
+    data.dates.push(d);
+    data.dates.push(""); // Оставляем место для следующей
+  }
+  
+  inp.value = '';
+  renderAll();
+  triggerSave();
+}
+
+function moveDate(idx, dir) {
+  if (!IS_EDIT_MODE) return;
+  var newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= data.dates.length) return;
+
+  var tempDate = data.dates[idx];
+  data.dates[idx] = data.dates[newIdx];
+  data.dates[newIdx] = tempDate;
+
+  data.students.forEach(function(s) {
+    var key1 = idx + '|' + s;
+    var key2 = newIdx + '|' + s;
+    var tempMark = data.marks[key1];
+    if (data.marks[key2] !== undefined) data.marks[key1] = data.marks[key2]; else delete data.marks[key1];
+    if (tempMark !== undefined) data.marks[key2] = tempMark; else delete data.marks[key2];
   });
-  html += '</ul>';
-  box.innerHTML = html;
+
+  renderAll();
+  triggerSave();
+}
+
+function renameDate(idx) {
+  if (!IS_EDIT_MODE) return;
+  var cur = data.dates[idx] || '';
+  var d = prompt('Введите новую дату (или оставьте пустым, чтобы удалить):', cur);
+  if (d === null) return;
+  
+  data.dates[idx] = d.trim();
+  
+  // Если стерли дату, удаляем оценки в этой колонке
+  if (d.trim() === '') {
+    data.students.forEach(function(s) { delete data.marks[idx + '|' + s]; });
+  }
+  
+  renderAll();
+  triggerSave();
+}
+
+// --- ФУНКЦИИ ДЛЯ УЧЕНИКОВ ---
+function editStudentName(oldName) {
+  if (!IS_EDIT_MODE) return;
+  var newName = prompt('Введите новое имя для "' + oldName + '":', oldName);
+  if (newName === null || newName.trim() === '' || newName === oldName) return;
+  
+  newName = newName.trim();
+  
+  var idx = data.students.indexOf(oldName);
+  if (idx !== -1) data.students[idx] = newName;
+  
+  if (data.statuses[oldName]) {
+    data.statuses[newName] = data.statuses[oldName];
+    delete data.statuses[oldName];
+  }
+  
+  Object.keys(data.marks).forEach(function(key) {
+    var parts = key.split('|');
+    if (parts[1] === oldName) {
+      var newKey = parts[0] + '|' + newName;
+      data.marks[newKey] = data.marks[key];
+      delete data.marks[key];
+    }
+  });
+
+  data.students.sort(function(a, b) { return a.localeCompare(b, 'ru'); });
+  
+  renderAll();
+  triggerSave();
 }
 
 /* ================= ДНЕВНИК ================= */
@@ -444,11 +515,12 @@ function generateDiary() {
   resBox.style.display = 'block';
 }
 
-/* ================= РЕНДЕР ТАБЛИЦ ================= */
+/* ================= РЕНДЕР ================= */
 function renderAll() {
   renderTable('view-table-wrapper', false);
   renderTable('mark-table-wrapper', true);
   renderClassList();
+  renderDateList();
   renderDateSelect();
 }
 
@@ -459,13 +531,9 @@ function renderTable(wrapperId, interactive) {
   var html = '<table><thead><tr>';
   html += '<th class="col-num">№</th>';
   html += '<th class="col-nm">Фамилия Имя</th>';
-  data.dates.forEach(function(d, i) {
+  data.dates.forEach(function(d) {
     var label = d || '&nbsp;';
-    if (interactive && IS_EDIT_MODE) {
-      html += '<th class="date-head" data-idx="' + i + '">' + label + '</th>';
-    } else {
-      html += '<th>' + label + '</th>';
-    }
+    html += '<th>' + label + '</th>';
   });
   html += '</tr></thead><tbody>';
 
@@ -506,11 +574,6 @@ function renderTable(wrapperId, interactive) {
         showCellDropdown(e, td.dataset.idx, td.dataset.student);
       });
     });
-    wrap.querySelectorAll('th.date-head').forEach(function(th) {
-      th.addEventListener('click', function(){
-        renameDate(th.dataset.idx);
-      });
-    });
   }
 }
 
@@ -543,24 +606,45 @@ function renderClassList() {
     var st = data.statuses[s] || 'питается';
     var color = st === 'бесплатно' ? 'var(--ok)' : (st === 'не питается' ? 'var(--bad)' : 'var(--mut)');
     html += '<div class="si">' +
-      '<span style="' + (IS_EDIT_MODE ? 'cursor:pointer' : '') + '" onclick="' + (IS_EDIT_MODE ? 'changeStatus(event, \'' + s + '\')' : '') + '">' + (i + 1) + '. ' + s + ' <small style="color:' + color + '">(' + st + ')</small></span>' +
+      '<div class="si-name">' +
+        '<span style="' + (IS_EDIT_MODE ? 'cursor:pointer' : '') + '" onclick="' + (IS_EDIT_MODE ? 'changeStatus(event, \'' + s + '\')' : '') + '">' + (i + 1) + '. ' + s + ' <small style="color:' + color + '">(' + st + ')</small></span>' +
+        (IS_EDIT_MODE ? '<button class="btn-icon" onclick="editStudentName(\'' + s + '\')" title="Редактировать">✏️</button>' : '') +
+      '</div>' +
       (IS_EDIT_MODE ? '<button class="btn-del" onclick="removeStudent(\'' + s + '\')">✕</button>' : '') +
     '</div>';
   });
   wrap.innerHTML = html;
 }
 
-/* ================= ДЕЙСТВИЯ ================= */
-function renameDate(idx) {
-  if (!IS_EDIT_MODE) return;
-  var cur = data.dates[idx] || '';
-  var d = prompt('Введите дату (или оставьте пустым, чтобы стереть):', cur);
-  if (d === null) return;
-  data.dates[idx] = d.trim();
-  renderAll();
-  triggerSave();
+function renderDateList() {
+  var wrap = document.getElementById('dlist');
+  if (!wrap) return;
+  var html = '';
+  var hasDates = false;
+  
+  data.dates.forEach(function(d, i) {
+    if (!d) return; // Пропускаем пустые
+    hasDates = true;
+    html += '<div class="si">' +
+      '<div class="si-name">' +
+        '<span style="font-weight:bold; font-size:16px;">' + d + '</span>' +
+      '</div>' +
+      '<div style="display:flex; gap:5px;">' +
+        '<button class="btn-icon" onclick="moveDate(' + i + ', -1)" title="Выше">▲</button>' +
+        '<button class="btn-icon" onclick="moveDate(' + i + ', 1)" title="Ниже">▼</button>' +
+        '<button class="btn-icon" onclick="renameDate(' + i + ')" title="Изменить">✏️</button>' +
+        '<button class="btn-del" onclick="renameDate(' + i + ')" title="Удалить" style="background:transparent; color:var(--bad); font-size:18px;">✕</button>' +
+      '</div>' +
+    '</div>';
+  });
+  
+  if (!hasDates) {
+    html = '<div style="padding:12px;color:var(--mut);text-align:center">Нет добавленных дат</div>';
+  }
+  wrap.innerHTML = html;
 }
 
+/* ================= ДЕЙСТВИЯ ================= */
 var popup = document.getElementById('popup');
 var activeCell = null;
 
@@ -609,6 +693,7 @@ function addStudent() {
   if (data.students.includes(name)) { alert('Такой уже есть'); return; }
   data.students.push(name);
   data.statuses[name] = 'питается';
+  data.students.sort(function(a, b) { return a.localeCompare(b, 'ru'); });
   input.value = '';
   renderAll();
   triggerSave();
@@ -637,7 +722,7 @@ function makeOrder() {
   if (!IS_EDIT_MODE) return;
   var sel = document.getElementById('order-date-select');
   if (!sel || !sel.value || sel.value === 'нет дат') {
-    alert('Сначала впишите дату (клик по пустому заголовку колонки)'); return;
+    alert('Сначала выберите дату!'); return;
   }
   var idx = sel.value;
   var pay = 0, free = 0;
