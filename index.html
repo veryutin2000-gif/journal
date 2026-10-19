@@ -93,8 +93,7 @@ tr.order-row .gc.empty{color:#475569}
     <h2>Меню</h2>
     <button id="btn-view" class="class-btn" onclick="openPage('view')">Просмотреть<span class="sub">таблица питания</span></button>
     <button id="btn-mark" class="class-btn" onclick="openPage('mark')">Отметить<span class="sub">внести данные</span></button>
-    <button id="btn-edit" class="class-btn" onclick="openPage('edit')">Ученики<span class="sub">добавить/изменить</span></button>
-    <button id="btn-dates" class="class-btn" onclick="openPage('dates')">Даты<span class="sub">настройка колонок</span></button>
+    <button id="btn-edit" class="class-btn" onclick="openPage('edit')">Изменить<span class="sub">ученики и настройки</span></button>
     <button id="btn-diary" class="class-btn" onclick="openPage('diary')" style="display:none; border-color:#f87171; color:#f87171;">Дневник<span class="sub">посещаемость</span></button>
   </div>
 </div>
@@ -142,19 +141,6 @@ tr.order-row .gc.empty{color:#475569}
     <div id="slist"></div>
   </div>
 
-  <div id="p-dates" class="panel" style="display:none">
-    <h3 style="margin-bottom:15px;color:var(--acc)">Настройка дат</h3>
-    <div id="date-controls" style="display:none">
-        <div class="form-group">
-          <label>Добавить новую дату (например, 02.10):</label>
-          <input type="text" id="new-date-input" placeholder="ДД.ММ">
-        </div>
-        <button class="btn-ok" onclick="addDate()" style="margin-bottom:20px">Добавить дату</button>
-    </div>
-    <h4 style="color:var(--mut);margin-bottom:10px">Список дат (стрелки меняют порядок)</h4>
-    <div id="dlist"></div>
-  </div>
-
   <div id="p-diary" class="panel" style="display:none">
     <h3 style="margin-bottom:15px;color:var(--bad)">Дневник посещаемости</h3>
     <div class="select-group">
@@ -178,9 +164,7 @@ tr.order-row .gc.empty{color:#475569}
 /* ================= НАСТРОЙКИ ================= */
 var TEACHER_PIN = '6452';
 var STUDENT_PIN = '8965'; 
-var MAIN_PIN = '1904'; 
 var IS_EDIT_MODE = false;
-var IS_MAIN_MODE = false;
 
 var data = {
   students: [
@@ -219,7 +203,7 @@ async function loadDataFromCloud() {
 }
 
 async function saveDataToCloud(silent) {
-  if (!IS_EDIT_MODE && !IS_MAIN_MODE) return;
+  if (!IS_EDIT_MODE) return;
   data._savedAt = Date.now();
   try {
     const res = await fetch(JSONBLOB_URL, {
@@ -237,7 +221,7 @@ async function saveDataToCloud(silent) {
 
 // Проверка обновлений с других устройств
 setInterval(async function() {
-  if (!IS_EDIT_MODE && !IS_MAIN_MODE) return;
+  if (!IS_EDIT_MODE) return;
   try {
     const res = await fetch(JSONBLOB_URL, { cache: 'no-cache' });
     if (res.ok) {
@@ -257,45 +241,28 @@ document.getElementById('pin-input').addEventListener('keydown', function(e){ if
 function doLogin(){
   var v = document.getElementById('pin-input').value;
   
-  if (v === TEACHER_PIN || v === STUDENT_PIN || v === MAIN_PIN) {
+  if (v === TEACHER_PIN || v === STUDENT_PIN) {
     document.getElementById('pin-screen').style.display = 'none';
     document.getElementById('class-screen').style.display = 'flex';
     
-    if (v === MAIN_PIN) {
-      IS_MAIN_MODE = true;
+    if (v === TEACHER_PIN) {
       IS_EDIT_MODE = true;
       document.getElementById('edit-controls').style.display = 'block';
-      document.getElementById('date-controls').style.display = 'block';
-      document.getElementById('user-mode').textContent = "Главный режим";
-      document.getElementById('user-mode').style.color = "var(--bad)";
-      document.getElementById('btn-view').style.display = 'block';
-      document.getElementById('btn-mark').style.display = 'block';
-      document.getElementById('btn-edit').style.display = 'block';
-      document.getElementById('btn-dates').style.display = 'block';
-      document.getElementById('btn-diary').style.display = 'block';
-    } 
-    else if (v === TEACHER_PIN) {
-      IS_EDIT_MODE = true;
-      document.getElementById('edit-controls').style.display = 'block';
-      document.getElementById('date-controls').style.display = 'block';
       document.getElementById('user-mode').textContent = "Режим учителя";
       document.getElementById('user-mode').style.color = "var(--ok)";
       document.getElementById('btn-view').style.display = 'block';
       document.getElementById('btn-mark').style.display = 'block';
       document.getElementById('btn-edit').style.display = 'block';
-      document.getElementById('btn-dates').style.display = 'block';
-      document.getElementById('btn-diary').style.display = 'none';
+      document.getElementById('btn-diary').style.display = 'block';
     } 
     else {
       IS_EDIT_MODE = false;
       document.getElementById('edit-controls').style.display = 'none';
-      document.getElementById('date-controls').style.display = 'none';
       document.getElementById('user-mode').textContent = "Режим ученика";
       document.getElementById('user-mode').style.color = "var(--warn)";
       document.getElementById('btn-view').style.display = 'block';
       document.getElementById('btn-mark').style.display = 'none';
       document.getElementById('btn-edit').style.display = 'none';
-      document.getElementById('btn-dates').style.display = 'none';
       document.getElementById('btn-diary').style.display = 'none';
     }
     
@@ -333,7 +300,7 @@ function showSv(text, color){
   setTimeout(function(){ el.classList.remove('show'); }, 2000);
 }
 
-/* ================= НОВЫЕ ФУНКЦИИ ================= */
+/* ================= ФУНКЦИИ ================= */
 
 function markAll() {
   if (!IS_EDIT_MODE) return;
@@ -345,64 +312,6 @@ function markAll() {
   
   var idx = sel.value;
   data.students.forEach(function(s) { data.marks[idx + '|' + s] = '+'; });
-  renderAll();
-  saveDataToCloud();
-}
-
-function addDate() {
-  if (!IS_EDIT_MODE) return;
-  var inp = document.getElementById('new-date-input');
-  var d = inp.value.trim();
-  if (!d) return;
-  
-  if (data.dates.includes(d)) { alert('Такая дата уже есть'); return; }
-  
-  var emptyIdx = data.dates.indexOf("");
-  if (emptyIdx !== -1) {
-    data.dates[emptyIdx] = d;
-  } else {
-    data.dates.push(d);
-    data.dates.push(""); 
-  }
-  
-  inp.value = '';
-  renderAll();
-  saveDataToCloud();
-}
-
-function moveDate(idx, dir) {
-  if (!IS_EDIT_MODE) return;
-  var newIdx = idx + dir;
-  if (newIdx < 0 || newIdx >= data.dates.length) return;
-
-  var tempDate = data.dates[idx];
-  data.dates[idx] = data.dates[newIdx];
-  data.dates[newIdx] = tempDate;
-
-  data.students.forEach(function(s) {
-    var key1 = idx + '|' + s;
-    var key2 = newIdx + '|' + s;
-    var tempMark = data.marks[key1];
-    if (data.marks[key2] !== undefined) data.marks[key1] = data.marks[key2]; else delete data.marks[key1];
-    if (tempMark !== undefined) data.marks[key2] = tempMark; else delete data.marks[key2];
-  });
-
-  renderAll();
-  saveDataToCloud();
-}
-
-function renameDate(idx) {
-  if (!IS_EDIT_MODE) return;
-  var cur = data.dates[idx] || '';
-  var d = prompt('Введите новую дату (или оставьте пустым, чтобы удалить):', cur);
-  if (d === null) return;
-  
-  data.dates[idx] = d.trim();
-  
-  if (d.trim() === '') {
-    data.students.forEach(function(s) { delete data.marks[idx + '|' + s]; });
-  }
-  
   renderAll();
   saveDataToCloud();
 }
@@ -507,7 +416,6 @@ function renderAll() {
   renderTable('view-table-wrapper', false);
   renderTable('mark-table-wrapper', true);
   renderClassList();
-  renderDateList();
   renderDateSelect();
 }
 
@@ -600,34 +508,6 @@ function renderClassList() {
       (IS_EDIT_MODE ? '<button class="btn-del" onclick="removeStudent(\'' + s + '\')">✕</button>' : '') +
     '</div>';
   });
-  wrap.innerHTML = html;
-}
-
-function renderDateList() {
-  var wrap = document.getElementById('dlist');
-  if (!wrap) return;
-  var html = '';
-  var hasDates = false;
-  
-  data.dates.forEach(function(d, i) {
-    if (!d) return; 
-    hasDates = true;
-    html += '<div class="si">' +
-      '<div class="si-name">' +
-        '<span style="font-weight:bold; font-size:16px;">' + d + '</span>' +
-      '</div>' +
-      '<div style="display:flex; gap:5px;">' +
-        '<button class="btn-icon" onclick="moveDate(' + i + ', -1)" title="Выше">▲</button>' +
-        '<button class="btn-icon" onclick="moveDate(' + i + ', 1)" title="Ниже">▼</button>' +
-        '<button class="btn-icon" onclick="renameDate(' + i + ')" title="Изменить">✏️</button>' +
-        '<button class="btn-del" onclick="renameDate(' + i + ')" title="Удалить" style="background:transparent; color:var(--bad); font-size:18px;">✕</button>' +
-      '</div>' +
-    '</div>';
-  });
-  
-  if (!hasDates) {
-    html = '<div style="padding:12px;color:var(--mut);text-align:center">Нет добавленных дат</div>';
-  }
   wrap.innerHTML = html;
 }
 
