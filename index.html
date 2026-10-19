@@ -163,13 +163,22 @@ var data = {
 
 data.students.forEach(s => { if (!data.statuses[s]) data.statuses[s] = "питается"; });
 
-/* ================= ОБЛАКО (JSONBlob) ================= */
-const BLOB_ID = "01a15593-12e7-70b5-81f8-9ee568b7a5d7";
-const JSONBLOB_URL = "https://jsonblob.com/api/jsonBlob/" + BLOB_ID;
+/* ================= ОБЛАКО (npoint.io с обходом кэша) ================= */
+const NPOINT_URL = "https://api.npoint.io/f4b8ecac682c912734ce";
+
+let saveTimer = null;
+
+function triggerSave() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    saveDataToCloud();
+  }, 1500); 
+}
 
 async function loadDataFromCloud() {
   try {
-    const res = await fetch(JSONBLOB_URL, { cache: 'no-cache' });
+    // Добавляем ?t=Дата, чтобы npoint не отдавал старые данные из кэша
+    const res = await fetch(NPOINT_URL + "?t=" + Date.now(), { cache: 'no-cache' });
     if (res.ok) {
       const json = await res.json();
       if (json && json.students && json.students.length > 0) {
@@ -184,8 +193,8 @@ async function saveDataToCloud(silent) {
   if (!IS_EDIT_MODE) return;
   data._savedAt = Date.now();
   try {
-    const res = await fetch(JSONBLOB_URL, {
-      method: 'PUT',
+    const res = await fetch(NPOINT_URL, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
@@ -200,7 +209,7 @@ async function saveDataToCloud(silent) {
 setInterval(async function() {
   if (!IS_EDIT_MODE) return;
   try {
-    const res = await fetch(JSONBLOB_URL, { cache: 'no-cache' });
+    const res = await fetch(NPOINT_URL + "?t=" + Date.now(), { cache: 'no-cache' });
     if (res.ok) {
       const json = await res.json();
       if (json && json.students && json._savedAt !== data._savedAt) {
@@ -275,7 +284,6 @@ function showSv(text, color){
 
 /* ================= ФУНКЦИИ ================= */
 
-// Добавление/изменение/удаление даты прямо в шапке
 function handleDateClick(idx) {
   if (!IS_EDIT_MODE) return;
   var cur = data.dates[idx] || '';
@@ -293,7 +301,7 @@ function handleDateClick(idx) {
   }
   
   renderAll();
-  saveDataToCloud();
+  triggerSave();
 }
 
 function markAll() {
@@ -307,7 +315,7 @@ function markAll() {
   var idx = sel.value;
   data.students.forEach(function(s) { data.marks[idx + '|' + s] = '+'; });
   renderAll();
-  saveDataToCloud();
+  triggerSave();
 }
 
 function editStudentName(oldName) {
@@ -337,7 +345,7 @@ function editStudentName(oldName) {
   data.students.sort(function(a, b) { return a.localeCompare(b, 'ru'); });
   
   renderAll();
-  saveDataToCloud();
+  triggerSave();
 }
 
 /* ================= РЕНДЕР ================= */
@@ -482,7 +490,7 @@ document.querySelectorAll('.pi').forEach(function(el) {
     if (v) data.marks[key] = v; else delete data.marks[key];
     closePopup();
     renderAll();
-    saveDataToCloud();
+    triggerSave();
   });
 });
 
@@ -497,7 +505,7 @@ function addStudent() {
   data.students.sort(function(a, b) { return a.localeCompare(b, 'ru'); });
   input.value = '';
   renderAll();
-  saveDataToCloud();
+  triggerSave();
 }
 
 function removeStudent(name) {
@@ -506,7 +514,7 @@ function removeStudent(name) {
   data.students = data.students.filter(function(s){ return s !== name; });
   delete data.statuses[name];
   renderAll();
-  saveDataToCloud();
+  triggerSave();
 }
 
 function changeStatus(ev, name) {
@@ -516,7 +524,7 @@ function changeStatus(ev, name) {
   var next = current === 'питается' ? 'не питается' : (current === 'не питается' ? 'бесплатно' : 'питается');
   data.statuses[name] = next;
   renderAll();
-  saveDataToCloud();
+  triggerSave();
 }
 
 function makeOrder() {
@@ -541,7 +549,7 @@ function makeOrder() {
 
   data.orders[idx] = result;
   renderAll();
-  saveDataToCloud();
+  triggerSave();
 }
 
 function takeScreenshot() {
