@@ -81,7 +81,7 @@ tr.order-row .gc.empty{color:#475569}
 .pi:hover{background:var(--acc)!important;color:#0b0f19!important}
 .pi.clr{background:var(--bad)!important;color:#fff!important;font-size:13px!important}
 
-/* Список учеников */
+/* Списки */
 .si{display:flex;justify-content:space-between;align-items:center;padding:12px 8px;border-bottom:1px solid var(--brd);background:var(--bg);margin-bottom:5px;border-radius:6px;gap:10px}
 .si-name { flex: 1; display: flex; align-items: center; gap: 8px; }
 .btn-icon{background:transparent!important;border:none!important;color:var(--acc)!important;cursor:pointer!important;font-size:16px!important;padding:0 5px!important}
@@ -93,10 +93,9 @@ tr.order-row .gc.empty{color:#475569}
 .form-group label{margin-bottom:6px;font-weight:600;font-size:14px;color:var(--mut)}
 .form-group input{padding:12px;border:1px solid var(--brd);border-radius:8px;font-size:16px;background:var(--bg);color:#fff}
 
-/* Стили для перетаскивания дат */
-.drag-handle { cursor: grab; color: var(--acc); font-size: 18px; padding: 0 8px; user-select: none; }
-.drag-handle:active { cursor: grabbing; }
-.dragging { opacity: 0.5; background: #334155; }
+/* Стили для стрелок */
+.arrow-btn { background: #1f2937; border: 1px solid var(--brd); color: var(--acc); font-size: 18px; padding: 4px 10px; border-radius: 6px; cursor: pointer; margin: 0 2px; }
+.arrow-btn:active { background: var(--acc); color: #000; }
 </style>
 </head>
 <body>
@@ -172,7 +171,7 @@ tr.order-row .gc.empty{color:#475569}
         </div>
         <button class="btn-ok" onclick="addDate()" style="margin-bottom:20px">Добавить</button>
     </div>
-    <h4 style="color:var(--mut);margin-bottom:10px">Список дат (зажмите и перетащите для изменения порядка)</h4>
+    <h4 style="color:var(--mut);margin-bottom:10px">Список дат (стрелки меняют порядок)</h4>
     <div id="dlist"></div>
   </div>
 </div>
@@ -335,70 +334,32 @@ function addDate() {
   saveDataToCloud();
 }
 
-// Перемещение дат (Drag & Drop)
-var dragStartIndex = null;
-
-function dragStart(e, idx) {
+// Перемещение дат стрелочками
+function moveDate(idx, direction) {
   if (!IS_EDIT_MODE) return;
-  dragStartIndex = idx;
-  e.dataTransfer.effectAllowed = 'move';
-  e.target.closest('.si').classList.add('dragging');
-}
-
-function dragOver(e) {
-  e.preventDefault(); // Разрешаем сброс
-  e.dataTransfer.dropEffect = 'move';
-}
-
-function dragEnter(e) {
-  e.preventDefault();
-  var targetRow = e.target.closest('.si');
-  if (targetRow) {
-    targetRow.style.borderTop = '2px solid var(--acc)';
+  var newIdx = idx + direction;
+  
+  // Проверка границ
+  if (newIdx < 0 || newIdx >= data.dates.length) return;
+  // Если целевая ячейка пустая, и мы двигаем вниз, просто меняем местами
+  if (!data.dates[newIdx] && direction === 1) {
+      // Можно оставить пустой, но для простоты просто двигаем
   }
-}
 
-function dragLeave(e) {
-  var targetRow = e.target.closest('.si');
-  if (targetRow) {
-    targetRow.style.borderTop = '';
-  }
-}
+  // Меняем местами даты
+  var tempDate = data.dates[idx];
+  data.dates[idx] = data.dates[newIdx];
+  data.dates[newIdx] = tempDate;
 
-function drop(e) {
-  e.preventDefault();
-  var targetRow = e.target.closest('.si');
-  if (!targetRow) return;
-  
-  targetRow.style.borderTop = '';
-  
-  var targetIdx = parseInt(targetRow.dataset.idx);
-  if (isNaN(targetIdx) || dragStartIndex === null || dragStartIndex === targetIdx) return;
-  
-  // Перемещаем дату
-  var movedDate = data.dates[dragStartIndex];
-  data.dates.splice(dragStartIndex, 1);
-  data.dates.splice(targetIdx, 0, movedDate);
-  
-  // Перемещаем оценки для всех учеников
+  // Меняем местами оценки для всех учеников
   data.students.forEach(function(s) {
-    var oldKey = dragStartIndex + '|' + s;
-    var newKey = targetIdx + '|' + s;
-    var val = data.marks[oldKey];
-    
-    // Удаляем старую и вставляем новую
-    if (val !== undefined) {
-      delete data.marks[oldKey];
-      data.marks[newKey] = val;
-    } else {
-      delete data.marks[oldKey];
-    }
+    var key1 = idx + '|' + s;
+    var key2 = newIdx + '|' + s;
+    var tempMark = data.marks[key1];
+    if (data.marks[key2] !== undefined) data.marks[key1] = data.marks[key2]; else delete data.marks[key1];
+    if (tempMark !== undefined) data.marks[key2] = tempMark; else delete data.marks[key2];
   });
 
-  // Очищаем пустые ячейки (если сместились)
-  // (В упрощенном виде просто перерисовываем)
-  
-  dragStartIndex = null;
   renderAll();
   saveDataToCloud();
 }
@@ -562,19 +523,15 @@ function renderDateList() {
   var hasDates = false;
   
   data.dates.forEach(function(d, i) {
-    if (!d) return;
+    if (!d) return; 
     hasDates = true;
-    html += '<div class="si" draggable="true" data-idx="' + i + '" ' +
-      'ondragstart="dragStart(event, ' + i + ')" ' +
-      'ondragover="dragOver(event)" ' +
-      'ondragenter="dragEnter(event)" ' +
-      'ondragleave="dragLeave(event)" ' +
-      'ondrop="drop(event)">' +
-      '<div class="si-name" style="cursor:pointer;">' +
-        '<span class="drag-handle">≡</span>' +
-        '<span onclick="handleDateClick(' + i + ')" style="font-weight:bold; font-size:16px;">' + d + '</span>' +
+    html += '<div class="si">' +
+      '<div class="si-name">' +
+        '<span onclick="handleDateClick(' + i + ')" style="font-weight:bold; font-size:16px; cursor:pointer;">' + d + '</span>' +
       '</div>' +
-      '<div style="display:flex; gap:5px;">' +
+      '<div style="display:flex; gap:5px; align-items:center;">' +
+        '<button class="arrow-btn" onclick="moveDate(' + i + ', -1)" title="Вверх">▲</button>' +
+        '<button class="arrow-btn" onclick="moveDate(' + i + ', 1)" title="Вниз">▼</button>' +
         '<button class="btn-del" onclick="handleDateClick(' + i + ')" title="Удалить" style="background:transparent; color:var(--bad); font-size:18px;">✕</button>' +
       '</div>' +
     '</div>';
@@ -708,7 +665,7 @@ function takeScreenshot() {
   if (!wrap.innerHTML.trim()) { alert('Таблица пуста'); return; }
   html2canvas(wrap, { backgroundColor: '#0b0f19', scale: 2, useCORS: true }).then(function(canvas) {
     var link = document.createElement('a');
-    link.link.download = 'Питание_скриншот.png';
+    link.download = 'Питание_скриншот.png';
     link.href = canvas.toDataURL('image/png');
     link.click();
   });
@@ -725,11 +682,7 @@ window.handleDateClick = handleDateClick;
 window.editStudentName = editStudentName;
 window.markAll = markAll;
 window.addDate = addDate;
-window.dragStart = dragStart;
-window.dragOver = dragOver;
-window.dragEnter = dragEnter;
-window.dragLeave = dragLeave;
-window.drop = drop;
+window.moveDate = moveDate;
 </script>
 
 </body>
