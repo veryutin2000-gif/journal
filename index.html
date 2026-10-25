@@ -81,7 +81,6 @@ tr.order-row .gc.empty{color:#475569}
 .pi:hover{background:var(--acc)!important;color:#0b0f19!important}
 .pi.clr{background:var(--bad)!important;color:#fff!important;font-size:13px!important}
 
-/* Списки */
 .si{display:flex;justify-content:space-between;align-items:center;padding:12px 8px;border-bottom:1px solid var(--brd);background:var(--bg);margin-bottom:5px;border-radius:6px;gap:10px}
 .si-name { flex: 1; display: flex; align-items: center; gap: 8px; }
 .btn-icon{background:transparent!important;border:none!important;color:var(--acc)!important;cursor:pointer!important;font-size:16px!important;padding:0 5px!important}
@@ -334,17 +333,12 @@ function addDate() {
   saveDataToCloud();
 }
 
-// Перемещение дат стрелочками
+// Перемещение дат стрелочками (с переносом заявок!)
 function moveDate(idx, direction) {
   if (!IS_EDIT_MODE) return;
   var newIdx = idx + direction;
   
-  // Проверка границ
   if (newIdx < 0 || newIdx >= data.dates.length) return;
-  // Если целевая ячейка пустая, и мы двигаем вниз, просто меняем местами
-  if (!data.dates[newIdx] && direction === 1) {
-      // Можно оставить пустой, но для простоты просто двигаем
-  }
 
   // Меняем местами даты
   var tempDate = data.dates[idx];
@@ -359,6 +353,11 @@ function moveDate(idx, direction) {
     if (data.marks[key2] !== undefined) data.marks[key1] = data.marks[key2]; else delete data.marks[key1];
     if (tempMark !== undefined) data.marks[key2] = tempMark; else delete data.marks[key2];
   });
+
+  // Меняем местами ЗАЯВКИ (orders)
+  var tempOrder = data.orders[idx];
+  if (data.orders[newIdx] !== undefined) data.orders[idx] = data.orders[newIdx]; else delete data.orders[idx];
+  if (tempOrder !== undefined) data.orders[newIdx] = tempOrder; else delete data.orders[newIdx];
 
   renderAll();
   saveDataToCloud();
@@ -375,6 +374,7 @@ function handleDateClick(idx) {
   if (d === '') {
     data.dates[idx] = '';
     data.students.forEach(function(s) { delete data.marks[idx + '|' + s]; });
+    delete data.orders[idx]; // Удаляем заявку при удалении даты
   } else {
     if (d !== cur && data.dates.includes(d)) { alert('Такая дата уже есть!'); return; }
     data.dates[idx] = d;
