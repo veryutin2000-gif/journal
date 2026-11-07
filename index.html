@@ -92,9 +92,12 @@ tr.order-row .gc.empty{color:#475569}
 .form-group label{margin-bottom:6px;font-weight:600;font-size:14px;color:var(--mut)}
 .form-group input{padding:12px;border:1px solid var(--brd);border-radius:8px;font-size:16px;background:var(--bg);color:#fff}
 
-/* Стили для стрелок */
+/* Стрелки */
 .arrow-btn { background: #1f2937; border: 1px solid var(--brd); color: var(--acc); font-size: 18px; padding: 4px 10px; border-radius: 6px; cursor: pointer; margin: 0 2px; }
 .arrow-btn:active { background: var(--acc); color: #000; }
+
+/* Выбор четверти */
+.quarter-select { padding: 10px; border-radius: 8px; background: var(--bg); color: var(--acc); border: 2px solid var(--brd); font-weight: bold; margin-bottom: 15px; width: 100%; font-size: 16px; cursor: pointer; outline: none; }
 </style>
 </head>
 <body>
@@ -131,6 +134,12 @@ tr.order-row .gc.empty{color:#475569}
     <button class="btn-menu" id="btn-menu">🏠 Меню</button>
     <h1>Журнал питания</h1>
     <div id="user-mode" style="text-align:center;font-size:12px;color:var(--mut)"></div>
+    <select id="quarter-select" class="quarter-select" onchange="changeQuarter()">
+      <option value="q1">1 Четверть</option>
+      <option value="q2">2 Четверть</option>
+      <option value="q3">3 Четверть</option>
+      <option value="q4">4 Четверть</option>
+    </select>
   </header>
 
   <div id="p-view" class="panel" style="display:none">
@@ -181,20 +190,29 @@ var TEACHER_PIN = '6452';
 var STUDENT_PIN = '8965'; 
 var IS_EDIT_MODE = false;
 
+// Текущая четверть (по умолчанию 1)
+var currentQuarter = 'q1';
+
+var defaultStudents = [
+  "Авчинникова Дарья","Аргучинская Евгения","Барановская Таня","Бородич Тимафей",
+  "Буров Никита","Василенко Анастасия","Верютин Артём","Госанов Тимур",
+  "Евдокимов Никита","Зайцев Владимер","Зинена Арина","Зубарь Стас",
+  "Коляденко Кирил","Корбан Мелана","Леухина Ярослава","Лобановский Станислав",
+  "Мороз Артём","Петровская Ева","Рак Камилла","Рыжков Артём",
+  "Синюгин Антон","Синяков Даниил","Тюляндин Клим","Тяпкин Артём",
+  "Федоренка Никита","Харкевич Платон","Цырша Игнат","Ященко Карина"
+];
+
+// Структура данных для 4 четвертей
 var data = {
-  students: [
-    "Авчинникова Дарья","Аргучинская Евгения","Барановская Таня","Бородич Тимафей",
-    "Буров Никита","Василенко Анастасия","Верютин Артём","Госанов Тимур",
-    "Евдокимов Никита","Зайцев Владимер","Зинена Арина","Зубарь Стас",
-    "Коляденко Кирил","Корбан Мелана","Леухина Ярослава","Лобановский Станислав",
-    "Мороз Артём","Петровская Ева","Рак Камилла","Рыжков Артём",
-    "Синюгин Антон","Синяков Даниил","Тюляндин Клим","Тяпкин Артём",
-    "Федоренка Никита","Харкевич Платон","Цырша Игнат","Ященко Карина"
-  ],
-  dates: Array(17).fill(""),
-  statuses: {},
-  marks: {},
-  orders: {}
+  students: [...defaultStudents],
+  statuses: {}, // статусы общие для всех четвертей
+  quarters: {
+    q1: { dates: Array(17).fill(""), marks: {}, orders: {} },
+    q2: { dates: Array(17).fill(""), marks: {}, orders: {} },
+    q3: { dates: Array(17).fill(""), marks: {}, orders: {} },
+    q4: { dates: Array(17).fill(""), marks: {}, orders: {} }
+  }
 };
 
 data.students.forEach(s => { if (!data.statuses[s]) data.statuses[s] = "питается"; });
@@ -208,6 +226,15 @@ async function loadDataFromCloud() {
     if (docSnap.exists()) {
       const cloudData = docSnap.data();
       if (cloudData && cloudData.students && cloudData.students.length > 0) {
+         // Миграция старых данных в формат четвертей
+         if (!cloudData.quarters) {
+             cloudData.quarters = {
+                 q1: { dates: cloudData.dates || Array(17).fill(""), marks: cloudData.marks || {}, orders: cloudData.orders || {} },
+                 q2: { dates: Array(17).fill(""), marks: {}, orders: {} },
+                 q3: { dates: Array(17).fill(""), marks: {}, orders: {} },
+                 q4: { dates: Array(17).fill(""), marks: {}, orders: {} }
+             };
+         }
          data = cloudData;
       }
     } else {
@@ -310,6 +337,17 @@ function showSv(text, color){
   setTimeout(function(){ el.classList.remove('show'); }, 2000);
 }
 
+/* ================= СМЕНА ЧЕТВЕРТИ ================= */
+function changeQuarter() {
+  currentQuarter = document.getElementById('quarter-select').value;
+  renderAll();
+}
+
+// Вспомогательные функции для получения текущих данных
+function getDates() { return data.quarters[currentQuarter].dates; }
+function getMarks() { return data.quarters[currentQuarter].marks; }
+function getOrders() { return data.quarters[currentQuarter].orders; }
+
 /* ================= ФУНКЦИИ ДАТ ================= */
 
 function addDate() {
@@ -318,14 +356,15 @@ function addDate() {
   var d = inp.value.trim();
   if (!d) return;
   
-  if (data.dates.includes(d)) { alert('Такая дата уже есть'); return; }
+  var dates = getDates();
+  if (dates.includes(d)) { alert('Такая дата уже есть'); return; }
   
-  var emptyIdx = data.dates.indexOf("");
+  var emptyIdx = dates.indexOf("");
   if (emptyIdx !== -1) {
-    data.dates[emptyIdx] = d;
+    dates[emptyIdx] = d;
   } else {
-    data.dates.push(d);
-    data.dates.push(""); 
+    dates.push(d);
+    dates.push(""); 
   }
   
   inp.value = '';
@@ -333,31 +372,30 @@ function addDate() {
   saveDataToCloud();
 }
 
-// Перемещение дат стрелочками (с переносом заявок!)
 function moveDate(idx, direction) {
   if (!IS_EDIT_MODE) return;
+  var dates = getDates();
+  var marks = getMarks();
+  var orders = getOrders();
   var newIdx = idx + direction;
   
-  if (newIdx < 0 || newIdx >= data.dates.length) return;
+  if (newIdx < 0 || newIdx >= dates.length) return;
 
-  // Меняем местами даты
-  var tempDate = data.dates[idx];
-  data.dates[idx] = data.dates[newIdx];
-  data.dates[newIdx] = tempDate;
+  var tempDate = dates[idx];
+  dates[idx] = dates[newIdx];
+  dates[newIdx] = tempDate;
 
-  // Меняем местами оценки для всех учеников
   data.students.forEach(function(s) {
     var key1 = idx + '|' + s;
     var key2 = newIdx + '|' + s;
-    var tempMark = data.marks[key1];
-    if (data.marks[key2] !== undefined) data.marks[key1] = data.marks[key2]; else delete data.marks[key1];
-    if (tempMark !== undefined) data.marks[key2] = tempMark; else delete data.marks[key2];
+    var tempMark = marks[key1];
+    if (marks[key2] !== undefined) marks[key1] = marks[key2]; else delete marks[key1];
+    if (tempMark !== undefined) marks[key2] = tempMark; else delete marks[key2];
   });
 
-  // Меняем местами ЗАЯВКИ (orders)
-  var tempOrder = data.orders[idx];
-  if (data.orders[newIdx] !== undefined) data.orders[idx] = data.orders[newIdx]; else delete data.orders[idx];
-  if (tempOrder !== undefined) data.orders[newIdx] = tempOrder; else delete data.orders[newIdx];
+  var tempOrder = orders[idx];
+  if (orders[newIdx] !== undefined) orders[idx] = orders[newIdx]; else delete orders[idx];
+  if (tempOrder !== undefined) orders[newIdx] = tempOrder; else delete orders[newIdx];
 
   renderAll();
   saveDataToCloud();
@@ -365,19 +403,23 @@ function moveDate(idx, direction) {
 
 function handleDateClick(idx) {
   if (!IS_EDIT_MODE) return;
-  var cur = data.dates[idx] || '';
+  var dates = getDates();
+  var marks = getMarks();
+  var orders = getOrders();
+  
+  var cur = dates[idx] || '';
   var d = prompt(cur ? 'Измените дату (или сотрите, чтобы удалить):' : 'Введите новую дату (например, 02.10):', cur);
   if (d === null) return;
   
   d = d.trim();
   
   if (d === '') {
-    data.dates[idx] = '';
-    data.students.forEach(function(s) { delete data.marks[idx + '|' + s]; });
-    delete data.orders[idx]; // Удаляем заявку при удалении даты
+    dates[idx] = '';
+    data.students.forEach(function(s) { delete marks[idx + '|' + s]; });
+    delete orders[idx];
   } else {
-    if (d !== cur && data.dates.includes(d)) { alert('Такая дата уже есть!'); return; }
-    data.dates[idx] = d;
+    if (d !== cur && dates.includes(d)) { alert('Такая дата уже есть!'); return; }
+    dates[idx] = d;
   }
   
   renderAll();
@@ -393,7 +435,8 @@ function markAll() {
   if (!confirm('Поставить "+" всем ученикам на выбранную дату?')) return;
   
   var idx = sel.value;
-  data.students.forEach(function(s) { data.marks[idx + '|' + s] = '+'; });
+  var marks = getMarks();
+  data.students.forEach(function(s) { marks[idx + '|' + s] = '+'; });
   renderAll();
   saveDataToCloud();
 }
@@ -413,13 +456,17 @@ function editStudentName(oldName) {
     delete data.statuses[oldName];
   }
   
-  Object.keys(data.marks).forEach(function(key) {
-    var parts = key.split('|');
-    if (parts[1] === oldName) {
-      var newKey = parts[0] + '|' + newName;
-      data.marks[newKey] = data.marks[key];
-      delete data.marks[key];
-    }
+  // Переименовываем во всех четвертях
+  Object.keys(data.quarters).forEach(function(q) {
+    var marks = data.quarters[q].marks;
+    Object.keys(marks).forEach(function(key) {
+      var parts = key.split('|');
+      if (parts[1] === oldName) {
+        var newKey = parts[0] + '|' + newName;
+        marks[newKey] = marks[key];
+        delete marks[key];
+      }
+    });
   });
 
   data.students.sort(function(a, b) { return a.localeCompare(b, 'ru'); });
@@ -441,11 +488,15 @@ function renderTable(wrapperId, interactive) {
   var wrap = document.getElementById(wrapperId);
   if (!wrap) return;
 
+  var dates = getDates();
+  var marks = getMarks();
+  var orders = getOrders();
+
   var html = '<table><thead><tr>';
   html += '<th class="col-num">№</th>';
   html += '<th class="col-nm">Фамилия Имя</th>';
   
-  data.dates.forEach(function(d, i) {
+  dates.forEach(function(d, i) {
     var label = d || '&nbsp;';
     if (interactive && IS_EDIT_MODE) {
       html += '<th class="date-head" onclick="handleDateClick(' + i + ')" title="Нажмите, чтобы изменить или удалить">' + label + '</th>';
@@ -459,8 +510,8 @@ function renderTable(wrapperId, interactive) {
     html += '<tr>';
     html += '<td class="col-num">' + (i + 1) + '</td>';
     html += '<td class="col-nm">' + s + '</td>';
-    data.dates.forEach(function(d, idx) {
-      var val = data.marks[idx + '|' + s] || '';
+    dates.forEach(function(d, idx) {
+      var val = marks[idx + '|' + s] || '';
       var cls = 'gc', txt = '-';
       if (val === '+') { cls += ' plus'; txt = '+'; }
       if (val === 'н') { cls += ' ab'; txt = 'н'; }
@@ -476,8 +527,8 @@ function renderTable(wrapperId, interactive) {
   html += '<tr class="order-row">';
   html += '<td class="col-num"></td>';
   html += '<td class="col-nm">Заявка</td>';
-  data.dates.forEach(function(d, idx) {
-    var orderVal = data.orders[idx] || '';
+  dates.forEach(function(d, idx) {
+    var orderVal = orders[idx] || '';
     var txt = orderVal ? orderVal : '-';
     var emptyClass = orderVal ? '' : 'empty';
     html += '<td class="gc ' + emptyClass + '">' + txt + '</td>';
@@ -501,7 +552,9 @@ function renderDateSelect() {
   var prev = sel.value;
   sel.innerHTML = '';
   var hasNamed = false;
-  data.dates.forEach(function(d, i) {
+  var dates = getDates();
+  
+  dates.forEach(function(d, i) {
     if (d) {
       hasNamed = true;
       var opt = document.createElement('option');
@@ -511,7 +564,7 @@ function renderDateSelect() {
   });
   if (!hasNamed) {
     sel.innerHTML = '<option>нет дат</option>';
-  } else if (prev && data.dates[prev]) {
+  } else if (prev && dates[prev]) {
     sel.value = prev;
   }
 }
@@ -521,8 +574,9 @@ function renderDateList() {
   if (!wrap) return;
   var html = '';
   var hasDates = false;
+  var dates = getDates();
   
-  data.dates.forEach(function(d, i) {
+  dates.forEach(function(d, i) {
     if (!d) return; 
     hasDates = true;
     html += '<div class="si">' +
@@ -595,7 +649,8 @@ document.querySelectorAll('.pi').forEach(function(el) {
     if (!activeCell || !IS_EDIT_MODE) return;
     var v = el.dataset.g;
     var key = activeCell.idx + '|' + activeCell.student;
-    if (v) data.marks[key] = v; else delete data.marks[key];
+    var marks = getMarks();
+    if (v) marks[key] = v; else delete marks[key];
     closePopup();
     renderAll();
     saveDataToCloud();
@@ -621,6 +676,15 @@ function removeStudent(name) {
   if (!confirm('Удалить "' + name + '"?')) return;
   data.students = data.students.filter(function(s){ return s !== name; });
   delete data.statuses[name];
+  
+  // Удаляем из всех четвертей
+  Object.keys(data.quarters).forEach(function(q) {
+    var marks = data.quarters[q].marks;
+    Object.keys(marks).forEach(function(key) {
+      if (key.split('|')[1] === name) delete marks[key];
+    });
+  });
+
   renderAll();
   saveDataToCloud();
 }
@@ -642,9 +706,12 @@ function makeOrder() {
     alert('Сначала выберите дату!'); return;
   }
   var idx = sel.value;
+  var marks = getMarks();
+  var orders = getOrders();
   var pay = 0, free = 0;
+  
   data.students.forEach(function(s) {
-    if (data.marks[idx + '|' + s] === '+') {
+    if (marks[idx + '|' + s] === '+') {
       if (data.statuses[s] === 'бесплатно') free++;
       else if (data.statuses[s] === 'питается') pay++;
     }
@@ -655,7 +722,7 @@ function makeOrder() {
   else if (free > 0) result = '' + free;
   else result = '';
 
-  data.orders[idx] = result;
+  orders[idx] = result;
   renderAll();
   saveDataToCloud();
 }
@@ -683,6 +750,7 @@ window.editStudentName = editStudentName;
 window.markAll = markAll;
 window.addDate = addDate;
 window.moveDate = moveDate;
+window.changeQuarter = changeQuarter;
 </script>
 
 </body>
