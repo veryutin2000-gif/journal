@@ -206,7 +206,7 @@ var defaultStudents = [
 // Структура данных для 4 четвертей
 var data = {
   students: [...defaultStudents],
-  statuses: {}, // статусы общие для всех четвертей
+  statuses: {}, 
   quarters: {
     q1: { dates: Array(17).fill(""), marks: {}, orders: {} },
     q2: { dates: Array(17).fill(""), marks: {}, orders: {} },
@@ -226,7 +226,6 @@ async function loadDataFromCloud() {
     if (docSnap.exists()) {
       const cloudData = docSnap.data();
       if (cloudData && cloudData.students && cloudData.students.length > 0) {
-         // Миграция старых данных в формат четвертей
          if (!cloudData.quarters) {
              cloudData.quarters = {
                  q1: { dates: cloudData.dates || Array(17).fill(""), marks: cloudData.marks || {}, orders: cloudData.orders || {} },
@@ -287,7 +286,7 @@ function doLogin(){
       IS_EDIT_MODE = true;
       document.getElementById('edit-controls').style.display = 'block';
       document.getElementById('date-controls').style.display = 'block';
-      document.getElementById('user-mode').textContent = "Режим учителя";
+      document.getElementById('user-mode').textContent = "Режим редактирования"; // ИЗМЕНЕНО
       document.getElementById('user-mode').style.color = "var(--ok)";
       document.getElementById('btn-view').style.display = 'block';
       document.getElementById('btn-mark').style.display = 'block';
@@ -298,7 +297,7 @@ function doLogin(){
       IS_EDIT_MODE = false;
       document.getElementById('edit-controls').style.display = 'none';
       document.getElementById('date-controls').style.display = 'none';
-      document.getElementById('user-mode').textContent = "Режим ученика";
+      document.getElementById('user-mode').textContent = "Режим просмотра"; // ИЗМЕНЕНО
       document.getElementById('user-mode').style.color = "var(--warn)";
       document.getElementById('btn-view').style.display = 'block';
       document.getElementById('btn-mark').style.display = 'none';
@@ -343,7 +342,6 @@ function changeQuarter() {
   renderAll();
 }
 
-// Вспомогательные функции для получения текущих данных
 function getDates() { return data.quarters[currentQuarter].dates; }
 function getMarks() { return data.quarters[currentQuarter].marks; }
 function getOrders() { return data.quarters[currentQuarter].orders; }
@@ -456,7 +454,6 @@ function editStudentName(oldName) {
     delete data.statuses[oldName];
   }
   
-  // Переименовываем во всех четвертях
   Object.keys(data.quarters).forEach(function(q) {
     var marks = data.quarters[q].marks;
     Object.keys(marks).forEach(function(key) {
@@ -677,7 +674,6 @@ function removeStudent(name) {
   data.students = data.students.filter(function(s){ return s !== name; });
   delete data.statuses[name];
   
-  // Удаляем из всех четвертей
   Object.keys(data.quarters).forEach(function(q) {
     var marks = data.quarters[q].marks;
     Object.keys(marks).forEach(function(key) {
