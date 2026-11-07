@@ -136,7 +136,7 @@ tr.order-row .gc.empty{color:#475569}
     <div id="user-mode" style="text-align:center;font-size:12px;color:var(--mut)"></div>
     <select id="quarter-select" class="quarter-select" onchange="changeQuarter()">
       <option value="q1">1 Четверть</option>
-      <option value="q2">2 Четверть</option>
+      <option value="q2" selected>2 Четверть</option>
       <option value="q3">3 Четверть</option>
       <option value="q4">4 Четверть</option>
     </select>
@@ -286,7 +286,7 @@ function doLogin(){
       IS_EDIT_MODE = true;
       document.getElementById('edit-controls').style.display = 'block';
       document.getElementById('date-controls').style.display = 'block';
-      document.getElementById('user-mode').textContent = "Режим редактирования"; // ИЗМЕНЕНО
+      document.getElementById('user-mode').textContent = "Режим редактирования";
       document.getElementById('user-mode').style.color = "var(--ok)";
       document.getElementById('btn-view').style.display = 'block';
       document.getElementById('btn-mark').style.display = 'block';
@@ -297,7 +297,7 @@ function doLogin(){
       IS_EDIT_MODE = false;
       document.getElementById('edit-controls').style.display = 'none';
       document.getElementById('date-controls').style.display = 'none';
-      document.getElementById('user-mode').textContent = "Режим просмотра"; // ИЗМЕНЕНО
+      document.getElementById('user-mode').textContent = "Режим просмотра";
       document.getElementById('user-mode').style.color = "var(--warn)";
       document.getElementById('btn-view').style.display = 'block';
       document.getElementById('btn-mark').style.display = 'none';
